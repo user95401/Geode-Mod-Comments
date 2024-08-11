@@ -6,76 +6,20 @@
 		"mac": "2.206",
 		"ios": "2.206"
 	},
-	"id": "user95401.gemetry_trash",
-	"name": "Gemetry Trash",
-	"version": "v3.0.0",
+	"id": "user95401.geode-mod-comments",
+	"name": "Mod Comments",
+	"version": "v1.0.0",
 	"developer": "user95401",
-	"description": "",
+	"description": "add comments in mod popups",
 	"early-load": true,
 	"resources": {
 		"sprites": [
 			"resources/sprites/*.png",
 			"resources/sprites/**/*.png"
 		],
-		"spritesheets": {
-			"gtps_spritesheet": [
-				"resources/spritesheets/gtps_spritesheet/**/*.png"
-			],
-			"repl_spritesheet": [
-				"resources/spritesheets/repl_spritesheet/**/*.png"
-			]
-		},
 		"files": [
 			"resources/files/*",
-			"resources/files/**/*",
-			"resources/**/*.mpg",
-			"resources/**/*.mp3",
-			"resources/**/*.ogg",
-			"resources/**/*.plist",
-			"resources/**/*.rand",
-			"resources/**/**/*.mpg",
-			"resources/**/**/*.mp3",
-			"resources/**/**/*.ogg",
-			"resources/**/**/*.plist",
-			"resources/**/**/*.rand"
+			"resources/files/**/*"
 		]
-	},
-	"settings": {
-		"No Button Anim": {
-			"name": "No Button Anim",
-			"description": "remove effect when btn get activated",
-			"type": "bool",
-			"default": false
-		},
-		"No Button UDare Dialog": {
-			"name": "No Button UDare Dialog",
-			"description": "remove button dialog appearance",
-			"type": "bool",
-			"default": false
-		},
-		"No Button Click Sound": {
-			"name": "No Button Click Sound",
-			"description": "remove sound on btn click",
-			"type": "bool",
-			"default": false
-		},
-		"No Menu Game BG Pulse": {
-			"name": "No Menu Game BG Pulse",
-			"description": "No Menu Game BG Pulse",
-			"type": "bool",
-			"default": false
-		},
-		"No New Explode in Menu Game": {
-			"name": "No New Explode in Menu Game",
-			"description": "remove new explode effect for players in main menu",
-			"type": "bool",
-			"default": false
-		},
-		"No Players Destroyed Counter": {
-			"name": "No Players Destroyed Counter",
-			"description": "remove new explode effect for players in main menu",
-			"type": "bool",
-			"default": false
-		}
 	}
 }
