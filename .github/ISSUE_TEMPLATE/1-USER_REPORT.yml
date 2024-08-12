@@ -1,0 +1,28 @@
+name: "USER REPORT"
+description: "make bad guy getting banned"
+
+labels: "report"
+title: "Unnamed Mod"
+
+body:
+    
+- type: markdown
+  attributes:
+  value: |
+    @user95401
+      
+- type: input
+  attributes:
+    label: Username (login) or link (link pls)
+  validations:
+    required: true
+      
+- type: input
+  attributes:
+    label: crime scene (mod id or issue number for example)
+  validations:
+    required: true
+      
+- type: textarea
+  attributes:
+    label: "More..."
