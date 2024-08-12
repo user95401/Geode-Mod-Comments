@@ -18,4 +18,5 @@ jobs:
     - uses: izhangzhihao/delete-comment@master
       with: 
         github_token: ${{ secrets.GITHUB_TOKEN }}
+        issue_number: ${{ github.event.number }}
         delete_user_name: ${{ matrix.config.delete_user_name }}
