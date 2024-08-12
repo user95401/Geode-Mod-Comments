@@ -1,5 +1,6 @@
+mod is developing now!11
 # Geode Mod Comments
 
-Add comments in mod popups...
+Add comments in mod popups.
 
-GitHub Rest API with OAuth. idka
+Using GitHub Rest API with OAuth.
