@@ -1,8 +1,8 @@
-name: "USER REPORT"
+name: "User Report"
 description: "make bad guy getting banned"
 
 labels: "report"
-title: "Unnamed Mod"
+title: "User Report"
 
 body:
     
@@ -13,7 +13,7 @@ body:
           
     - type: input
       attributes:
-          label: Username (login) or link (link pls)
+          label: username or link (link pls)
       validations:
         required: true
           
