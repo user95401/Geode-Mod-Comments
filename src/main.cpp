@@ -30,21 +30,147 @@ namespace github {
     }
     inline void set_token(std::string token) {
         Mod::get()->setSavedValue("gh_access_token", token);
+        Mod::get()->saveData();
     }
     inline bool has_token() {
         return (get_token().size() > 3);
-    }
-    inline const char* authorization_header_name() {
-        return has_token() ? "Authorization" : "AuthDisabled";
     }
     inline auto get_basic_web_request() {
         auto req = web::WebRequest();
         req.userAgent(Mod::get()->getID());
         req.header("X-GitHub-Api-Version", "2022-11-28");
-        req.header(authorization_header_name(), fmt::format("Bearer {}", get_token()));
+        if(has_token()) req.header("Authorization", fmt::format("Bearer {}", get_token()));
         return req;
     }
 }
+class GitHubAuthPopup : public FLAlertLayer, FLAlertLayerProtocol {
+public:
+    virtual void FLAlert_Clicked(FLAlertLayer* p0, bool p1) {
+        auto protocol = new GitHubAuthPopup;
+        //info"Continue"
+        if (p0->getID() == "info" and p1) {
+            //open auth apps idk
+            web::openLinkInBrowser("https://user95401.7m.pl/geode-mod-comments/auth");
+            //finish pop
+            auto pop = FLAlertLayer::create(
+                protocol,
+                "Authorization",
+                "Put code from gray page here:" "\n \n \n",
+                "Back", "Finish",
+                360.f
+            );
+            //input
+            auto input = TextInput::create(280.f, "the code");
+            input->setID("input");
+            input->setPositionY(42.f);
+            pop->m_buttonMenu->addChild(input);
+            //paste
+            auto paste = CCMenuItemSpriteExtra::create(
+                CCLabelBMFont::create(
+                    "paste\ntext",
+                    "chatFont.fnt"
+                ),
+                pop,
+                menu_selector(GitHubAuthPopup::onPasteToInput)
+            );
+            paste->setPositionY(90.f);
+            paste->setPositionX(-140.f);
+            pop->m_buttonMenu->addChild(paste);
+            //last popup setup
+            pop->setID("finish");
+            pop->show();
+        };
+        //finish"Finish"
+        if (p0->getID() == "finish" and p1) {
+            //code
+            auto code = std::string("");
+            auto input = dynamic_cast<TextInput*>(p0->getChildByIDRecursive("input"));
+            if (input) code = input->getString();
+            //
+            auto a = [this, protocol](matjson::Value const& catgirl) {
+                if (not catgirl.contains("access_token")) {
+                    auto asd = geode::createQuickPopup(
+                        "Failed getting token",
+                        catgirl.dump(),
+                        "Nah", nullptr, 420.f, nullptr, false
+                    );
+                    asd->show();
+                    return;
+                }
+                github::set_token(catgirl["access_token"].as_string());
+                if (auto githubitem = typeinfo_cast<CCMenuItemSpriteExtra*>(
+                    CCScene::get()->getChildByIDRecursive("githubitem"))) {
+                    githubitem->setOpacity(github::has_token() ? 120 : 255);
+                };
+                auto asd = geode::createQuickPopup(
+                    "Access token saved!",
+                    "Now u have no limits and able to create comments...",
+                    "OK", nullptr,
+                    nullptr
+                );
+                };
+            auto b = [this](std::string const& error)
+                {// something went wrong with our web request Q~Q
+                    auto message = error;
+                    auto asd = geode::createQuickPopup(
+                        "Request exception",
+                        message,
+                        "Nah", nullptr, 420.f, nullptr, false
+                    );
+                    asd->show();
+                };
+            auto req = web::WebRequest();
+            auto listener = new EventListener<web::WebTask>;
+            listener->bind(
+                [this, a, b](web::WebTask::Event* e) {
+                    if (web::WebResponse* res = e->getValue()) {
+                        std::string data = res->string().unwrapOr("");
+                        //json
+                        std::string error;
+                        auto json_val = matjson::parse(data, error);
+                        if (error.size() > 0) return b("Error parsing JSON: " + error);
+                        //call the some shit
+                        if (res->code() < 399) a(json_val);
+                        else b(data);
+                    }
+                }
+            );
+            req.header("Accept", "application/json");
+            req.bodyString(
+                fmt::format("code={}", code) +
+                "&" "client_id=Ov23lisVe58mXL4UNOsE"
+                "&" "client_secret=9a2f156940cd3464a07d941a38160fd6bdf3dd78"
+                //"&" ""
+            );
+            listener->setFilter(req.send("POST", "https://github.com/login/oauth/access_token"));
+        }
+        //back"Back"
+        if (p0->getID() == "finish" and not p1) {
+            show_info();
+        }
+    };
+    static void show_info() {
+        auto protocol = new GitHubAuthPopup;
+        auto pop = FLAlertLayer::create(
+            protocol,
+            "Authorization",
+            "<co>Authorize</c> your <cy>GitHub Account</c> to <cg>reduce</c> <cr>limits</c> and be <cg>able to create comments</c> in game.\nAfter click on the <co>\"Continue\" button</c> you will be <cr>redirected to</c> <cy>browser auth interfaces</c>.",
+            "Abort", "Continue",
+            360.f
+        );
+        pop->setID("info");
+        pop->show();
+    }
+    void onPasteToInput(CCObject* btnObj) {
+        auto btn = dynamic_cast<CCNode*>(btnObj);
+        auto menu = btn->getParent();
+        auto input = dynamic_cast<TextInput*>(menu->getChildByIDRecursive("input"));
+        input->setString(utils::clipboard::read());
+    };
+    void onOpenupBtn(CCObject*) {
+        show_info();
+    }
+};
 
 inline auto issues = matjson::Value();
 inline std::map<std::string, matjson::Value> mod_issues;
@@ -62,10 +188,13 @@ public:
     }
     void customSetup(CCNode* parent) {
         this->setContentWidth(parent->getContentWidth());
+
+        auto padding = 8.f;
+        auto rowcell = CCNode::create();
+        rowcell->setContentWidth(parent->getContentWidth() - padding);
         //row
-        if (auto row = CCMenu::create()) {
-            this->addChild(row);
-            row->setAnchorPoint(CCPointZero);
+        auto row = CCMenu::create();
+        if (row) {
             row->setLayout(
                 RowLayout::create()
                 ->setAxisAlignment(AxisAlignment::Start)
@@ -90,6 +219,8 @@ public:
                     if (not sprite) return;
                     sprite->initWithFile(filep.string().c_str());
                     sprite->setScale(avatar->getContentWidth() / sprite->getContentSize().width);
+                    auto error_code = std::error_code();
+                    std::filesystem::remove(filep, error_code);
                     };
                 auto req = web::WebRequest();
                 auto listener = new EventListener<web::WebTask>;
@@ -147,7 +278,7 @@ public:
                     );
                     user->addChild(menu);
                     //delete_btn
-                    auto edit_delBtn_001 = CCSprite::createWithSpriteFrameName("edit_delBtn_001.png");
+                    auto edit_delBtn_001 = CCSprite::createWithSpriteFrameName("geode.loader/delete-white.png");
                     edit_delBtn_001->setScale(0.5f);
                     auto delete_btn = CCMenuItemSpriteExtra::create(
                         edit_delBtn_001,
@@ -177,14 +308,31 @@ public:
             //upd
             row->updateLayout();
         }
-        this->setLayout(RowLayout::create());
+        rowcell->addChild(row);
+        rowcell->setLayout(RowLayout::create());//contentsize
+        rowcell->setAnchorPoint(CCPoint(0.5f, 0.5f));
+
+        this->setContentWidth(parent->getContentWidth());
+        this->setContentHeight(rowcell->getContentHeight() + padding);
+        this->addChildAtPosition(rowcell, Anchor::Center);
+
+        auto bg = CCScale9Sprite::create(
+            "square02_small.png"
+        );
+        bg->setZOrder(-1);
+        bg->setOpacity(75);
+        bg->setContentSize(this->getContentSize());
+        this->addChildAtPosition(bg, Anchor::Center);
     }
     //IssueCommentItem
     void deleteComment(CCObject*) {
         auto a = [this](std::string const& rtn)
             {
-                if (auto reload = dynamic_cast<CCMenuItemSpriteExtra*>(CCDirector::get()->m_pRunningScene->getChildByIDRecursive("reload")))
-                    reload->activate();
+                if (auto comments = typeinfo_cast<CCMenuItemSpriteExtra*>(
+                    CCScene::get()->getChildByIDRecursive("comments"))) {
+                    comments->getParent()->setTag(0);//remove prev tab set
+                    comments->activate();//reopen tab
+                };
                 //asd
                 if (this) {
                     auto parent = this->getParent();
@@ -227,9 +375,11 @@ public:
 
 class CommentsLayer : public CCLayer {
 public:
-    static auto create(CCContentLayer* contentLayer, std::string modID) {
+    static auto create(Ref<CCContentLayer> contentLayer, std::string modID) {
+        if (!contentLayer) return;
 
         auto scroll = typeinfo_cast<ScrollLayer*>(contentLayer->getParent());
+        if (!scroll) return;
 
         float scroll_gap = 12.f;
         
@@ -244,13 +394,19 @@ public:
 
         contentLayer->setContentHeight(0.f);
         if (mod_comments[modID].is_array()) for (auto comment : mod_comments[modID].as_array()) {
+
             auto item = IssueCommentItem::create(contentLayer, comment);
+            
             contentLayer->setContentHeight(//make content layer longer
                 contentLayer->getContentHeight() + 
                 item->getContentHeight() + scroll_gap
             );
+
             contentLayer->addChild(item);
         }
+        contentLayer->setContentHeight(//last line space
+            contentLayer->getContentHeight() - scroll_gap
+        );
         //fix some shit goes when content smaller than scroll
         if (contentLayer->getContentSize().height < scroll->getContentSize().height) {
             contentLayer->setContentSize({
@@ -259,44 +415,25 @@ public:
                 });
         }
         contentLayer->updateLayout();
-
+        scroll->scrollLayer(contentLayer->getContentSize().height);
     }
 };
 
 class LoadCommentsLayer : public CCLayer {
 public:
     EventListener<web::WebTask> m_webTaskListener;
-    static auto create(CCContentLayer* contentLayer, std::string modID) {
+    static auto create(Ref<CCContentLayer> contentLayer, std::string modID) {
         auto me = new LoadCommentsLayer();
         me->init();
 
+        auto scroll = typeinfo_cast<ScrollLayer*>(contentLayer->getParent());
+
         me->setAnchorPoint({ 0.0f, 0.0f });
-        me->setContentSize(contentLayer->getParent()->getContentSize());
-        contentLayer->setContentSize(me->getContentSize());
-        contentLayer->addChild(me);
-
-        if (issues.is_array()) for (auto issue : issues.as_array()) {
-            auto title = issue.try_get<std::string>("title").value_or("NO_TITLE");
-            auto number = issue.try_get<int>("number").value_or(1);
-            if (title == modID) {
-                mod_issues[modID] = issue;
-                break;
-            }
-            else if (number == 1) mod_issues[modID] = issue;
-        }
-
-        if (mod_issues.contains(modID)) void();
-        else {
-            auto label = CCLabelBMFont::create(fmt::format(
-                "Can't find any issue for {}!",
-                modID
-            ).data(), "chatFont.fnt"
-            );
-            label->setAlignment(kCCTextAlignmentCenter);
-            label->setAnchorPoint({ 0.5f, 1.f });
-            me->addChildAtPosition(label, Anchor::Top, { 0.f, -72.f });
-        }
-
+        if (contentLayer) {
+            if (scroll) me->setContentSize(scroll->getContentSize());
+            contentLayer->setContentSize(me->getContentSize());
+            contentLayer->addChild(me);
+        };
         auto bg = CCScale9Sprite::create(
             "square02_small.png"
         );
@@ -304,13 +441,14 @@ public:
         bg->setContentSize(me->getContentSize());
         me->addChildAtPosition(bg, Anchor::Center);
 
-        auto label = CCLabelBMFont::create(fmt::format(
+        Ref<CCLabelBMFont> label = CCLabelBMFont::create(fmt::format(
             "Loading comments for {}...", 
             modID
             ).data(), "chatFont.fnt"
         );
         label->setAlignment(kCCTextAlignmentCenter);
         label->setAnchorPoint({ 0.5f, 1.f });
+        label->setWidth(me->getContentSize().width - 32.f);
         me->addChildAtPosition(label, Anchor::Top, {0.f, -72.f});
 
         auto circle = LoadingCircleSprite::create();
@@ -325,15 +463,15 @@ public:
                     if (json.has_value()) {
                         mod_comments[modID] = json.value();
                         me->removeFromParent();
-                        CommentsLayer::create(contentLayer, modID);
+                        if (contentLayer) CommentsLayer::create(contentLayer, modID);
                     }
-                    else label->setString(fmt::format(
+                    else if (label) label->setString(fmt::format(
                         "{}\n{}",
                         label->getString(),
                         json.error_or("no err, str: " + string.value_or("no str"))
                     ).c_str());
                 }
-                else if (e->isCancelled()) label->setString(fmt::format(
+                else if (e->isCancelled()) if (label) label->setString(fmt::format(
                     "{}\n\n\nThe request was cancelled...",
                     label->getString()
                 ).c_str());
@@ -352,15 +490,18 @@ public:
 class LoadIssuesLayer : public CCLayer {
 public:
     EventListener<web::WebTask> m_webTaskListener;
-    static auto create(CCContentLayer* contentLayer, std::string modID) {
+    static LoadIssuesLayer* create(Ref<CCContentLayer> contentLayer, std::string modID, bool createNew = false) {
         auto me = new LoadIssuesLayer();
         me->init();
 
         me->setAnchorPoint({ 0.0f, 0.0f });
-        me->setContentSize(contentLayer->getParent()->getContentSize());
-        contentLayer->setContentSize(me->getContentSize());
-        contentLayer->addChild(me);
 
+        me->setAnchorPoint({ 0.0f, 0.0f });
+        if (contentLayer) {
+            me->setContentSize(contentLayer->getParent()->getContentSize());
+            contentLayer->setContentSize(me->getContentSize());
+            contentLayer->addChild(me);
+        };
         auto bg = CCScale9Sprite::create(
             "square02_small.png"
         );
@@ -368,12 +509,13 @@ public:
         bg->setContentSize(me->getContentSize());
         me->addChildAtPosition(bg, Anchor::Center);
 
-        auto label = CCLabelBMFont::create(
+        Ref<CCLabelBMFont> label = CCLabelBMFont::create(
             "Loading issues...\n(discussion channels)", 
             "chatFont.fnt"
         );
         label->setAlignment(kCCTextAlignmentCenter);
         label->setAnchorPoint({ 0.5f, 1.f });
+        label->setWidth(me->getContentSize().width - 32.f);
         me->addChildAtPosition(label, Anchor::Top, {0.f, -72.f});
 
         auto circle = LoadingCircleSprite::create();
@@ -381,22 +523,49 @@ public:
         me->addChildAtPosition(circle, Anchor::Top, {0.f, -44.f});
 
         me->m_webTaskListener.bind(
-            [contentLayer, modID, me, label](web::WebTask::Event* e) {
+            [contentLayer, modID, createNew, me, label](web::WebTask::Event* e) {
                 if (web::WebResponse* res = e->getValue()) {
                     auto json = res->json();
                     auto string = res->string();
                     if (json.has_value()) {
                         issues = json.value();
-                        me->removeFromParent();
-                        LoadCommentsLayer::create(contentLayer, modID);
+
+                        if (createNew) mod_issues[modID] = issues;
+                        else if (issues.is_array()) for (auto issue : issues.as_array()) {
+                            auto title = issue.try_get<std::string>("title").value_or("NO_TITLE");
+                            if (title == modID) {
+                                mod_issues[modID] = issue;
+                                break;
+                            }
+                        }
+
+                        if (mod_issues.contains(modID)) {
+                            me->removeFromParent();
+                            if (contentLayer) LoadCommentsLayer::create(contentLayer, modID);
+                        }
+                        else {
+                            if (github::has_token()) {
+                                me->removeFromParent();
+                                if (contentLayer) LoadIssuesLayer::create(
+                                    contentLayer, modID, true
+                                );
+                            }
+                            else {
+                                if (label) label->setString(fmt::format(
+                                    "Can't find any issue for {}!\nLogin to create new comments channel!",
+                                    modID
+                                ).data());
+                            }
+                        };
+
                     }
-                    else label->setString(fmt::format(
+                    else if (label) label->setString(fmt::format(
                         "{}\n{}",
                         label->getString(),
                         json.error_or("no err, str: " + string.value_or("no str"))
                     ).c_str());
                 }
-                else if (e->isCancelled()) label->setString(fmt::format(
+                else if (e->isCancelled()) if (label) label->setString(fmt::format(
                     "{}\n\n\nThe request was cancelled...",
                     label->getString()
                 ).c_str());
@@ -404,7 +573,13 @@ public:
         );
 
         auto req = github::get_basic_web_request();
-        me->m_webTaskListener.setFilter(req.get(
+        if (createNew) {
+            auto body = matjson::Value();
+            body["title"] = modID;
+            req.bodyJSON(body);
+        }
+        me->m_webTaskListener.setFilter(req.send(
+            createNew ? "POST" : "GET",
             github::api_repo_url + "/issues"
         ));
 
@@ -480,6 +655,8 @@ void hi() {
                         textarea->setVisible(1);
                         if (auto comments_scroll = rcontainer->getChildByIDRecursive("comments_scroll"))
                             comments_scroll->removeFromParent();
+                        if (auto comments_menu = rcontainer->getChildByIDRecursive("comments_menu"))
+                            comments_menu->removeFromParent();
                     }
                     else if (sender->getTag() == myTabID) {
                         tabspr->m_label->setString("Send New");
@@ -488,20 +665,14 @@ void hi() {
                         changelog_sprite->select(0);
                         //sel this tab
                         tabspr->select(1);
-
+                        //upload comment pop or open list
                         if (sender->getParent()->getTag() == myTabID) {
-                            auto pop = FLAlertLayer::create(
-                                nullptr,
-                                "Create Comment",
-                                "\n \n \n \n \n ",
-                                "Close", "Create",
-                                380.f
-                            );
+
                             //md_prev
                             auto md_prev = MDTextArea::create("# input and preview here...\nJust tap on me and type your text!\n\nAlso you can type <co>`\\n`</c> and it will be replaced with newline char automatically. And remember, in **Markdown** you write two newlines to start new paragraph!", CCSize(290.f, 112.f));
                             md_prev->setID("md_prev");
                             md_prev->setPositionY(86.f);
-                            pop->m_buttonMenu->addChild(md_prev, 1);
+
                             //input
                             auto input = TextInput::create(md_prev->getContentWidth(), "", "chatFont.fnt");
                             input->setID("input");
@@ -527,13 +698,68 @@ void hi() {
                                 }
                             );
                             input->setPosition(md_prev->getPosition() * 2);
+
+                            auto pop = createQuickPopup(
+                                "Create Comment",
+                                "\n \n \n \n \n ",
+                                "Close", "Create",
+                                380.f, 
+                                [input, modID, sender, old_lis, old_sel](CCNode*, bool create) {
+                                    if (not create) return;
+                                    auto data = input->getString();
+                                    auto body = matjson::parse("{\"body\": \"\"}");
+                                    body["body"] = data;
+                                    auto a = [sender, old_lis, old_sel](std::string const& rtn)
+                                        {
+                                            if (string::contains(rtn, "\"body\":")) {
+                                                sender->getParent()->setTag(0);//remove prev tab
+                                                sender->activate();//reopen tab
+                                                return;
+                                            }
+                                            auto message = rtn;
+                                            auto asd = geode::createQuickPopup(
+                                                "Request",
+                                                message,
+                                                "Nah", nullptr, 420.f, nullptr, false
+                                            );
+                                            asd->show();
+                                        };
+                                    auto b = [](std::string const& rtn)
+                                        {
+                                            auto message = rtn;
+                                            auto asd = geode::createQuickPopup(
+                                                "Request exception",
+                                                message,
+                                                "Nah", nullptr, 420.f, nullptr, false
+                                            );
+                                            asd->show();
+                                        };
+                                    auto req = github::get_basic_web_request();
+                                    auto listener = new EventListener<web::WebTask>;
+                                    listener->bind(
+                                        [a, b](web::WebTask::Event* e) {
+                                            if (web::WebResponse* res = e->getValue()) {
+                                                std::string data = res->string().unwrapOr("");
+                                                //call the some shit
+                                                if (res->code() < 399) a(data);
+                                                else b(data);
+                                            }
+                                        }
+                                    );
+                                    req.bodyJSON(body);
+                                    listener->setFilter(req.send("POST", mod_issues[modID]["comments_url"].as_string()));
+                                }
+                            );
+
+                            pop->m_buttonMenu->addChild(md_prev, 1);
                             pop->m_buttonMenu->addChild(input);
-                            //last popup setup
                             handleTouchPriority(pop);
-                            pop->setID("post_comment_popup");
-                            pop->show();
                         }
                         else {
+                            if (auto comments_scroll = rcontainer->getChildByIDRecursive("comments_scroll"))
+                                comments_scroll->removeFromParent();
+                            if (auto comments_menu = rcontainer->getChildByIDRecursive("comments_menu"))
+                                comments_menu->removeFromParent();
                             auto textarea = rcontainer->getChildByIDRecursive("textarea");
                             textarea->setVisible(0);
                             auto comments_scroll_size = textarea->getParent()->getContentSize();
@@ -544,8 +770,30 @@ void hi() {
                                 comments_scroll->m_contentLayer, 
                                 modID
                             );
+                            //menuuu
+                            auto menu = CCMenu::create();
+                            menu->setID("comments_menu");
+                            comments_scroll->getParent()->addChild(menu);
+                            menu->setContentSize(comments_scroll_size);
+                            menu->setAnchorPoint(CCPointZero);
+                            menu->setPosition(CCPointZero);
+                            //reload
+                            menu->addChildAtPosition(CCMenuItemExt::createSpriteExtraWithFrameName(
+                                "geode.loader/reload.png", 0.6f, [sender](CCMenuItemSpriteExtra*) {
+                                    sender->getParent()->setTag(0);//remove prev tab set
+                                    sender->activate();//reopen tab
+                                }
+                            ), Anchor::BottomRight, { -6.f, 6.f});
+                            //github
+                            auto githubitem = CCMenuItemExt::createSpriteExtraWithFrameName(
+                                "geode.loader/github.png", 0.6f, [sender](CCMenuItemSpriteExtra*) {
+                                    GitHubAuthPopup::show_info();
+                                }
+                            );
+                            githubitem->setID("githubitem");
+                            githubitem->setOpacity(github::has_token() ? 120 : 255);
+                            menu->addChildAtPosition(githubitem, Anchor::TopRight, { -6.f, -6.f });
                         };
-
                     }
                     sender->getParent()->setTag(sender->getTag());
                     };
