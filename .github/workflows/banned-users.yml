@@ -1,0 +1,21 @@
+on: issue_comment
+name: Delete comments by banned ones
+permissions:
+  issues: write
+jobs:
+  delete-comments:
+    strategy:
+    
+      fail-fast: false
+      matrix:
+        config:
+        - name: nfrrecs (test)
+          delete_user_name: nfrrecs
+    
+    name: ${{ matrix.config.name }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: izhangzhihao/delete-comment@master
+      with: 
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        delete_user_name: ${{ matrix.config.delete_user_name }}
