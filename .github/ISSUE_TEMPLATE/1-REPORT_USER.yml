@@ -1,8 +1,8 @@
-name: "User Report"
-description: "make bad guy getting banned"
+name: "Report User"
+description: "Make bad guy getting banned!"
 
 labels: "report"
-title: "User Report"
+title: "Report User"
 
 body:
     
@@ -13,13 +13,13 @@ body:
           
     - type: input
       attributes:
-          label: username or link (link pls)
+          label: "Username or Link (link pls)"
       validations:
         required: true
           
     - type: input
       attributes:
-        label: crime scene (mod id or issue number for example)
+        label: "Crime Scene (mod id or issue number for example)"
       validations:
         required: true
           
