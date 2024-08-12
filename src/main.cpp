@@ -4,6 +4,8 @@
 
 using namespace geode::prelude;
 
+//hi
+
 #define SETTING(type, key_name) Mod::get()->getSettingValue<type>(key_name)
 
 #define public_cast(value, member) \
@@ -21,28 +23,50 @@ using namespace geode::prelude;
 	return c.get(reinterpret_cast<FriendeeClass__*>(v)); \
 }(value)
 
-namespace github {
-    inline auto api_repo_url = std::string(
+class ghAccount {
+public:
+    inline static auto api_repo_url = std::string(
         "https://api.github.com/repos/user95401/Geode-Mod-Comments"
     );
-    inline std::string get_token() {
+    inline static auto user = matjson::Value();
+    //define
+    static void try_load_user() {
+        if (user.contains("id")) return;
+        auto req = ghAccount::get_basic_web_request();
+        auto listener = new EventListener<web::WebTask>;
+        listener->bind(
+            [](web::WebTask::Event* e) {
+                if (web::WebResponse* res = e->getValue()) {
+                    auto json = res->json();
+                    auto string = res->string();
+                    if (json.has_value()) user = json.value();
+                }
+            }
+        );
+        listener->setFilter(req.send(
+            "GET",
+            "https://api.github.com/user"
+        ));
+    }
+    static std::string get_token() {
         return Mod::get()->getSavedValue<std::string>("gh_access_token");
     }
-    inline void set_token(std::string token) {
+    static void set_token(std::string token) {
         Mod::get()->setSavedValue("gh_access_token", token);
         Mod::get()->saveData();
+        try_load_user();
     }
-    inline bool has_token() {
+    static bool has_token() {
         return (get_token().size() > 3);
     }
-    inline auto get_basic_web_request() {
+    static web::WebRequest get_basic_web_request() {
         auto req = web::WebRequest();
         req.userAgent(Mod::get()->getID());
         req.header("X-GitHub-Api-Version", "2022-11-28");
-        if(has_token()) req.header("Authorization", fmt::format("Bearer {}", get_token()));
+        if (has_token()) req.header("Authorization", fmt::format("Bearer {}", get_token()));
         return req;
     }
-}
+};
 class GitHubAuthPopup : public FLAlertLayer, FLAlertLayerProtocol {
 public:
     virtual void FLAlert_Clicked(FLAlertLayer* p0, bool p1) {
@@ -97,10 +121,10 @@ public:
                     asd->show();
                     return;
                 }
-                github::set_token(catgirl["access_token"].as_string());
+                ghAccount::set_token(catgirl["access_token"].as_string());
                 if (auto githubitem = typeinfo_cast<CCMenuItemSpriteExtra*>(
                     CCScene::get()->getChildByIDRecursive("githubitem"))) {
-                    githubitem->setOpacity(github::has_token() ? 120 : 255);
+                    githubitem->setOpacity(ghAccount::has_token() ? 120 : 255);
                 };
                 auto asd = geode::createQuickPopup(
                     "Access token saved!",
@@ -172,10 +196,13 @@ public:
     }
 };
 
+$on_mod(Loaded){ ghAccount::try_load_user(); }
+
 inline auto issues = matjson::Value();
 inline std::map<std::string, matjson::Value> mod_issues;
 inline std::map<std::string, matjson::Value> mod_comments;
 
+//ryzen code :D
 class IssueCommentItem : public CCMenuItem {
 public:
     matjson::Value m_json;
@@ -250,33 +277,45 @@ public:
                     ->setGap(0.f)
                 );
                 text->setContentWidth(parent->getContentWidth() - avatar_size.width);
-                //user
-                auto updated_at = m_json["updated_at"].as_string();
-                updated_at = string::replace(updated_at, "T", " ");
-                updated_at = string::replace(updated_at, "Z", "");
-                updated_at = string::replace(updated_at, "-", ".");
-                auto user = CCLabelTTF::create(
-                    fmt::format(
-                        "{} at {}",
-                        m_json["user"]["login"].as_string(),
-                        updated_at
-                    ).c_str(),
-                    "arial", 12.f
-                );
-                user->setID("user");
-                text->addChild(user);
-                //menu in end of user text
+                //menu user text
+                CCLabelBMFont* user;
                 if (auto menu = CCMenu::create()) {
-                    menu->setPosition(user->getContentSize());
+
+                    //user
+                    user = CCLabelBMFont::create(
+                        fmt::format("{}", m_json["user"]["login"].as_string()).c_str(),
+                        "chatFont.fnt"
+                    );
+                    user->setScale(0.8f);
+                    user->setID("user");
+                    menu->addChild(user);
+
+                    //updated_at
+                    auto updated_at = m_json["updated_at"].as_string();
+                    updated_at = string::replace(updated_at, "T", " ");
+                    updated_at = string::replace(updated_at, "Z", "");
+                    updated_at = string::replace(updated_at, "-", ".");
+                    auto updated_at_label = CCLabelBMFont::create(
+                        fmt::format(" at {}", updated_at).c_str(),
+                        "chatFont.fnt"
+                    );
+                    updated_at_label->setScale(0.68f);
+                    updated_at_label->setOpacity(120);
+                    updated_at_label->setID("updated_at_label");
+                    menu->addChild(updated_at_label);
+
                     menu->setContentHeight(user->getContentHeight());
-                    menu->setAnchorPoint({ -0.01f, 1.f });
+                    menu->setContentWidth(text->getContentWidth());
                     menu->setLayout(
                         RowLayout::create()
                         ->setAxisAlignment(AxisAlignment::Start)
                         ->setAutoScale(false)
                         ->setCrossAxisOverflow(false)
+                        ->setGap(0.f)
                     );
-                    user->addChild(menu);
+                    //menu update
+                    menu->updateLayout();
+
                     //delete_btn
                     auto edit_delBtn_001 = CCSprite::createWithSpriteFrameName("geode.loader/delete-white.png");
                     edit_delBtn_001->setScale(0.5f);
@@ -285,9 +324,16 @@ public:
                         this,
                         menu_selector(IssueCommentItem::deleteComment)
                     );
-                    menu->addChild(delete_btn);
-                    //menu update
-                    menu->updateLayout();
+                    auto comment_user_id = m_json["user"]["id"].as_int();
+                    auto loggedinuser_id = ghAccount::user.try_get<int>("id").value_or(0);
+                    auto is_owner = (comment_user_id == loggedinuser_id);
+                    if (not is_owner) edit_delBtn_001->setOpacity(13);
+                    menu->addChildAtPosition(
+                        delete_btn, Anchor::TopRight, { -6.f, -6.f }, false
+                    );
+
+                    text->addChild(menu);
+                    text->updateLayout();
                 }
                 //body
                 auto body = public_cast(
@@ -350,7 +396,7 @@ public:
                 );
                 asd->show();
             };
-        auto req = github::get_basic_web_request();
+        auto req = ghAccount::get_basic_web_request();
         auto listener = new EventListener<web::WebTask>;
         listener->bind(
             [this, a, b](web::WebTask::Event* e) {
@@ -381,7 +427,7 @@ public:
         auto scroll = typeinfo_cast<ScrollLayer*>(contentLayer->getParent());
         if (!scroll) return;
 
-        float scroll_gap = 12.f;
+        float scroll_gap = 6.f;
         
         contentLayer->setAnchorPoint(CCPointZero);
         contentLayer->setPositionX(0);
@@ -393,6 +439,36 @@ public:
         );
 
         contentLayer->setContentHeight(0.f);
+
+        auto startLayer = CCMenu::create();
+        startLayer->setAnchorPoint({ 0.5f, 0.f });
+        startLayer->setContentSize(
+            { contentLayer->getContentWidth(), 52.f }
+        );
+        if (startLayer) {
+            auto header = CCLabelBMFont::create(fmt::format(
+                "Welcome to comments about {}!", modID
+            ).c_str(), "chatFont.fnt");
+            if ((startLayer->getContentWidth() - 32.f) < header->getContentWidth())
+                header->setScale((startLayer->getContentWidth() - 46.f) / header->getContentWidth());
+            header->setAnchorPoint({0.5f, 1.f});
+            startLayer->addChildAtPosition(header, Anchor::Top, {0.f, -6.f});
+            auto startedby = CCLabelBMFont::create(fmt::format(
+                "Started by {}.", mod_issues[modID]["user"].try_get<std::string>("login").value_or("broken user lol")
+            ).c_str(), "chatFont.fnt");
+            startedby->setOpacity(190);
+            startedby->setScale(0.7);
+            startedby->setAnchorPoint({0.5f, 1.f});
+            startLayer->addChildAtPosition(startedby, Anchor::Top, {0.f, -26.f});
+            auto line = CCSprite::createWithSpriteFrameName("floorLine_01_001.png");
+            line->setScaleX((startLayer->getContentWidth() - 46.f) / line->getContentWidth());
+            startLayer->addChildAtPosition(line, Anchor::Bottom, {0.f, 6.f});
+        }
+        contentLayer->setContentHeight(//make content layer longer
+            contentLayer->getContentHeight() + startLayer->getContentHeight()
+        );
+        contentLayer->addChild(startLayer);
+
         if (mod_comments[modID].is_array()) for (auto comment : mod_comments[modID].as_array()) {
 
             auto item = IssueCommentItem::create(contentLayer, comment);
@@ -426,7 +502,10 @@ public:
         auto me = new LoadCommentsLayer();
         me->init();
 
+        if (!contentLayer) return me;
+
         auto scroll = typeinfo_cast<ScrollLayer*>(contentLayer->getParent());
+        if (!scroll) return me;
 
         me->setAnchorPoint({ 0.0f, 0.0f });
         if (contentLayer) {
@@ -478,7 +557,7 @@ public:
             }
         );
 
-        auto req = github::get_basic_web_request();
+        auto req = ghAccount::get_basic_web_request();
         me->m_webTaskListener.setFilter(req.get(
             mod_issues[modID].try_get<std::string>("comments_url").value_or("")
         ));
@@ -490,15 +569,18 @@ public:
 class LoadIssuesLayer : public CCLayer {
 public:
     EventListener<web::WebTask> m_webTaskListener;
-    static LoadIssuesLayer* create(Ref<CCContentLayer> contentLayer, std::string modID, bool createNew = false) {
+    static LoadIssuesLayer* create(Ref<CCContentLayer> contentLayer, std::string modID, int page = 1, bool createNew = false) {
         auto me = new LoadIssuesLayer();
         me->init();
 
-        me->setAnchorPoint({ 0.0f, 0.0f });
+        if (!contentLayer) return me;
+
+        auto scroll = typeinfo_cast<ScrollLayer*>(contentLayer->getParent());
+        if (!scroll) return me;
 
         me->setAnchorPoint({ 0.0f, 0.0f });
         if (contentLayer) {
-            me->setContentSize(contentLayer->getParent()->getContentSize());
+            if (scroll) me->setContentSize(scroll->getContentSize());
             contentLayer->setContentSize(me->getContentSize());
             contentLayer->addChild(me);
         };
@@ -509,8 +591,12 @@ public:
         bg->setContentSize(me->getContentSize());
         me->addChildAtPosition(bg, Anchor::Center);
 
-        Ref<CCLabelBMFont> label = CCLabelBMFont::create(
-            "Loading issues...\n(discussion channels)", 
+        Ref<CCLabelBMFont> label = CCLabelBMFont::create(fmt::format(
+            "{}...\n"
+            "page: {}",
+            not createNew ? "Loading issues" : "Creating new issue", 
+            page
+        ).data(),
             "chatFont.fnt"
         );
         label->setAlignment(kCCTextAlignmentCenter);
@@ -523,7 +609,7 @@ public:
         me->addChildAtPosition(circle, Anchor::Top, {0.f, -44.f});
 
         me->m_webTaskListener.bind(
-            [contentLayer, modID, createNew, me, label](web::WebTask::Event* e) {
+            [contentLayer, modID, page, createNew, me, label](web::WebTask::Event* e) {
                 if (web::WebResponse* res = e->getValue()) {
                     auto json = res->json();
                     auto string = res->string();
@@ -544,10 +630,16 @@ public:
                             if (contentLayer) LoadCommentsLayer::create(contentLayer, modID);
                         }
                         else {
-                            if (github::has_token()) {
+                            if (page <= 5) {
                                 me->removeFromParent();
                                 if (contentLayer) LoadIssuesLayer::create(
-                                    contentLayer, modID, true
+                                    contentLayer, modID, (1 + page)
+                                );
+                            }
+                            else if (ghAccount::has_token()) {
+                                me->removeFromParent();
+                                if (contentLayer) LoadIssuesLayer::create(
+                                    contentLayer, modID, page, true
                                 );
                             }
                             else {
@@ -572,15 +664,20 @@ public:
             }
         );
 
-        auto req = github::get_basic_web_request();
+        auto req = ghAccount::get_basic_web_request();
         if (createNew) {
             auto body = matjson::Value();
             body["title"] = modID;
             req.bodyJSON(body);
         }
+        else {
+            req.param("page", page);
+            req.param("per_page", 100);
+            req.param("state", "all");
+        }
         me->m_webTaskListener.setFilter(req.send(
             createNew ? "POST" : "GET",
-            github::api_repo_url + "/issues"
+            ghAccount::api_repo_url + "/issues"
         ));
 
         return me;
@@ -600,11 +697,11 @@ void hi() {
             //fix tabs menu
             CCNode* tabsMenu = nullptr;
             if (tabsMenu = popup->getChildByIDRecursive("tabs-menu")) {
-                auto mark = CCComponent::create();
-                mark->setName("pointAndSizeFixMark");
-                if (tabsMenu->getComponent(mark->getName())) void();
+                auto mark = CCNode::create();
+                mark->setID("pointAndSizeFixMark");
+                if (tabsMenu->getChildByID(mark->getID())) void();
                 else {
-                    tabsMenu->addComponent(mark);
+                    tabsMenu->addChild(mark);
                     tabsMenu->setAnchorPoint({ 0.f, 1.f });
                     tabsMenu->setPositionX(0.f);
                     tabsMenu->setContentWidth(tabsMenu->getContentWidth() - 21.f);
@@ -734,7 +831,7 @@ void hi() {
                                             );
                                             asd->show();
                                         };
-                                    auto req = github::get_basic_web_request();
+                                    auto req = ghAccount::get_basic_web_request();
                                     auto listener = new EventListener<web::WebTask>;
                                     listener->bind(
                                         [a, b](web::WebTask::Event* e) {
@@ -786,13 +883,13 @@ void hi() {
                             ), Anchor::BottomRight, { -6.f, 6.f});
                             //github
                             auto githubitem = CCMenuItemExt::createSpriteExtraWithFrameName(
-                                "geode.loader/github.png", 0.6f, [sender](CCMenuItemSpriteExtra*) {
+                                "geode.loader/github.png", 0.56f, [sender](CCMenuItemSpriteExtra*) {
                                     GitHubAuthPopup::show_info();
                                 }
                             );
                             githubitem->setID("githubitem");
-                            githubitem->setOpacity(github::has_token() ? 120 : 255);
-                            menu->addChildAtPosition(githubitem, Anchor::TopRight, { -6.f, -6.f });
+                            githubitem->setOpacity(ghAccount::has_token() ? 60 : 255);
+                            menu->addChildAtPosition(githubitem, Anchor::TopRight, { -5.f, 9.f });
                         };
                     }
                     sender->getParent()->setTag(sender->getTag());
