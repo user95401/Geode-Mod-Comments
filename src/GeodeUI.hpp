@@ -1,5 +1,6 @@
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
+#include <Geode/ui/LoadingSpinner.hpp>
 #include <Geode/utils/ColorProvider.hpp>
 using namespace geode::prelude;
 

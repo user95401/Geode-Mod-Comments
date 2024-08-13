@@ -54,6 +54,7 @@ public:
     static void set_token(std::string token) {
         Mod::get()->setSavedValue("gh_access_token", token);
         Mod::get()->saveData();
+        user = matjson::Value();
         try_load_user();
     }
     static bool has_token() {
@@ -64,6 +65,13 @@ public:
         req.userAgent(Mod::get()->getID());
         req.header("X-GitHub-Api-Version", "2022-11-28");
         if (has_token()) req.header("Authorization", fmt::format("Bearer {}", get_token()));
+        return req;
+    }
+    static web::WebRequest* create_basic_web_request() {
+        auto req = new web::WebRequest();
+        req->userAgent(Mod::get()->getID());
+        req->header("X-GitHub-Api-Version", "2022-11-28");
+        if (has_token()) req->header("Authorization", fmt::format("Bearer {}", get_token()));
         return req;
     }
 };
@@ -203,7 +211,7 @@ inline std::map<std::string, matjson::Value> mod_issues;
 inline std::map<std::string, matjson::Value> mod_comments;
 
 //ryzen code :D
-class IssueCommentItem : public CCMenuItem {
+class IssueCommentItem : public CCLayer {
 public:
     matjson::Value m_json;
     static auto create(CCNode* parent, matjson::Value json) {
@@ -216,10 +224,146 @@ public:
     void customSetup(CCNode* parent) {
         this->setContentWidth(parent->getContentWidth());
 
+        auto comment_user_id = m_json["user"]["id"].as_int();
+        auto loggedinuser_id = ghAccount::user.try_get<int>("id").value_or(0);
+        auto is_owner = (comment_user_id == loggedinuser_id);
+
         auto padding = 8.f;
-        auto rowcell = CCNode::create();
-        rowcell->setContentWidth(parent->getContentWidth() - padding);
-        //row
+
+        auto cell = CCNode::create();
+        cell->setContentWidth(parent->getContentWidth() - padding);
+
+        //react_row
+        if (m_json.contains("reactions")) {
+            auto react_row = CCMenu::create();
+            auto& reactions = m_json["reactions"];
+            auto onBtn = [reactions](CCMenuItemSpriteExtra* sender)
+                {
+                    auto tab = typeinfo_cast<GeodeTabSprite*>(sender->getNormalImage());
+                    auto should_delete = tab->m_selectedBG->isVisible();
+                    sender->setEnabled(0);
+                    auto req = ghAccount::get_basic_web_request();
+                    auto listener = new EventListener<web::WebTask>;
+                    listener->bind([tab, sender, should_delete](web::WebTask::Event* e)
+                        {
+                            if (web::WebResponse* res = e->getValue()) {
+                                sender->setEnabled(1);
+                                auto string = res->string();
+                                auto json = res->json().value_or(matjson::Value());
+                                if (res->code() < 399) {
+                                    tab->select(!should_delete);
+                                    sender->setTag(json.try_get<int>("id").value_or(sender->getTag()));
+                                    auto count = numFromString<int>(tab->m_label->getString()).value_or(1);
+                                    if (should_delete) --count; else ++count;
+                                    tab->m_label->setString(fmt::format("{}", count).data());
+                                }
+                            }
+                            else if (e->isCancelled()) {
+                                sender->setEnabled(1);
+                            }
+                        }
+                    );
+                    auto url = reactions.try_get<std::string>("url").value_or("");
+                    if (should_delete) {
+                        listener->setFilter(req.send(
+                            "DELETE", fmt::format("{}/{}", url, sender->getTag())
+                        ));
+                    }
+                    else {
+                        auto body = matjson::Value();
+                        body["content"] = sender->getID();
+                        req.bodyJSON(body);
+                        listener->setFilter(req.send(
+                            "POST", url
+                        ));
+                    };
+                };
+            auto addBtn = [reactions, react_row, onBtn](std::string name, std::string frame, std::string text = "")
+                {
+                    auto btnspr = GeodeTabSprite::create(
+                        frame.data(),
+                        (not text.empty() ? 
+                            text : string::replace(
+                                reactions[name].dump(), "\"", "")
+                            ).data(),
+                        52.f, 1
+                    );
+                    btnspr->select(0);
+                    btnspr->m_deselectedBG->setContentHeight(32.f);
+                    btnspr->m_selectedBG->setContentHeight(32.f);
+                    btnspr->m_label->setFntFile("gjFont17.fnt");
+                    btnspr->m_label->setScale(0.2f + btnspr->m_label->getScale());
+                    btnspr->setScale(0.6f);
+                    auto btn = CCMenuItemExt::createSpriteExtra(btnspr, onBtn);
+                    btn->setID(name.data());
+                    react_row->addChild(btn);
+                    return btn;
+                };
+            auto plus1 = addBtn("+1", "+1.png"_spr);
+            auto minus1 = addBtn("-1", "-1.png"_spr);
+            auto laugh = addBtn("laugh", "laugh.png"_spr);
+            auto confused = addBtn("confused", "confused.png"_spr);
+            auto heart = addBtn("heart", "heart.png"_spr);
+            auto hooray = addBtn("hooray", "hooray.png"_spr);
+            auto rocket = addBtn("rocket", "rocket.png"_spr);
+            auto eyes = addBtn("eyes", "eyes.png"_spr);
+            auto loading = LoadingSpinner::create(1.f);
+            react_row->addChild(loading);
+            react_row->setTouchEnabled(0);
+            react_row->setContentHeight(18.000f);//temp
+            react_row->setContentWidth(parent->getContentWidth());
+            react_row->setLayout(
+                RowLayout::create()
+                ->setAxisAlignment(AxisAlignment::Start)
+                ->setAutoScale(0)
+                ->setGrowCrossAxis(1)
+                ->setCrossAxisOverflow(0)
+            );
+            react_row->setContentHeight(20.000f);
+            cell->addChild(react_row);
+            cell->setContentHeight(react_row->getContentHeight() + cell->getContentHeight());
+            //loadthereactionsfk
+            std::function<void(int)> load;
+            auto req = ghAccount::create_basic_web_request();
+            auto bindfn = [req, reactions, load, react_row, loading, loggedinuser_id](web::WebTask::Event* e)
+                {
+                    if (web::WebResponse* res = e->getValue()) {
+                        auto json = res->json();
+                        auto string = res->string();
+                        if (res->code() < 399) if (json.has_value()) {
+                            auto val = json.value();
+                            if (val.is_array()) for (auto reaction : val.as_array()) {
+                                auto itsme = reaction["user"]["id"].as_int() == loggedinuser_id;
+                                auto name = reaction["content"].as_string();
+                                auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(react_row->getChildByID(name));
+                                auto tab = typeinfo_cast<GeodeTabSprite*>(item->getNormalImage());
+                                if (itsme) tab->select(itsme);
+                                item->setTag(reaction["id"].as_int());//for delete
+                            };
+                            auto page = utils::numFromString<int>(req->getUrlParams().at("page")).value_or(1);
+                            if (json.value().as_array().size() < 100) {
+                                //final
+                                loading->removeFromParent();
+                                react_row->setTouchEnabled(1);
+                            }
+                            else load(page + 1);
+                        }
+                    };
+                };
+            load = [req, bindfn, reactions](int page)
+                {
+                    req->param("page", page);
+                    req->param("per_page", 100);
+                    auto listener = new EventListener<web::WebTask>;
+                    listener->bind(bindfn);
+                    listener->setFilter(req->get(
+                        reactions.try_get<std::string>("url").value_or("")
+                    ));
+                };
+            load(1);
+        }
+
+        //cell row
         auto row = CCMenu::create();
         if (row) {
             row->setLayout(
@@ -279,6 +423,7 @@ public:
                 text->setContentWidth(parent->getContentWidth() - avatar_size.width);
                 //menu user text
                 CCLabelBMFont* user;
+                MDTextArea* mdarea = MDTextArea::create(m_json["body"].as_string(), { text->getContentWidth(), 10 });
                 if (auto menu = CCMenu::create()) {
 
                     //user
@@ -324,22 +469,90 @@ public:
                         this,
                         menu_selector(IssueCommentItem::deleteComment)
                     );
-                    auto comment_user_id = m_json["user"]["id"].as_int();
-                    auto loggedinuser_id = ghAccount::user.try_get<int>("id").value_or(0);
-                    auto is_owner = (comment_user_id == loggedinuser_id);
-                    if (not is_owner) edit_delBtn_001->setOpacity(13);
+                    if (not is_owner) edit_delBtn_001->setOpacity(6);
                     menu->addChildAtPosition(
                         delete_btn, Anchor::TopRight, { -6.f, -6.f }, false
+                    );
+
+                    //edit
+                    auto comment_edit_input = TextInput::create(120.f, "ew");
+                    comment_edit_input->setVisible(0);
+                    this->addChild(comment_edit_input);
+                    auto comment_edit = CCMenuItemExt::createTogglerWithFilename(
+                        "comment_upload.png"_spr, "comment_edit.png"_spr, 0.7f,
+                        [this, mdarea, comment_edit_input](CCMenuItemToggler* item) {
+                            if (not item->m_toggled) {
+                                comment_edit_input->setString(mdarea->getString());
+                                comment_edit_input->setCallback(
+                                    [mdarea, comment_edit_input](std::string str) {
+                                        auto endl_filtered = string::replace(str, "\\n", "\n");
+                                        if (str.find("\\n") != std::string::npos) {
+                                            comment_edit_input->setString(endl_filtered.data());
+                                        }
+                                        mdarea->setString(endl_filtered.data());
+                                        if (auto body_container = public_cast(mdarea, m_content)->getParent()) {
+                                            body_container->updateLayout();
+                                            body_container->getParent()->updateLayout();
+                                            body_container->getParent()->getParent()->updateLayout();
+                                        };
+                                    }
+                                );
+                                comment_edit_input->focus();
+                            }
+                            else {
+                                comment_edit_input->defocus();
+                                Ref<LoadingCircle> loadinlr = LoadingCircle::create();
+                                loadinlr->setContentSize(this->getContentSize());
+                                loadinlr->m_sprite->setPosition({ 12.f, 12.f });
+                                loadinlr->m_sprite->setScale(0.25f);
+                                loadinlr->setParentLayer(this);
+                                loadinlr->addChild(this->getChildByID("bg"));
+                                loadinlr->show();
+                                auto req = ghAccount::get_basic_web_request();
+                                auto listener = new EventListener<web::WebTask>;
+                                listener->bind(
+                                    [this, loadinlr, comment_edit_input](web::WebTask::Event* e) {
+                                        if (web::WebResponse* res = e->getValue()) {
+                                            if (loadinlr) loadinlr->removeFromParent();
+                                            std::string data = res->string().unwrapOr("");
+                                            auto json = res->json().value_or(m_json);
+
+                                            auto ntfy = Notification::create(" ");
+                                            if (res->code() < 399) ntfy->setString(
+                                                "comment was updated"
+                                            );
+                                            else if (json.contains("message")) ntfy->setString(
+                                                "" + json["message"].as_string()
+                                            );
+                                            else ntfy->setString(
+                                                "" + res->string().error_or(data)
+                                            );
+                                            ntfy->show();
+
+                                            auto body = json.try_get<std::string>("body").value_or(m_json["body"].as_string());
+                                            comment_edit_input->setString(body, 1);
+                                        }
+                                    }
+                                );
+                                auto body = matjson::parse("{\"body\": \"\"}");
+                                body.try_set("body", comment_edit_input->getString());
+                                req.bodyJSON(body);
+                                listener->setFilter(req.send("PATCH", m_json["url"].as_string()));
+                            }
+                        }
+                    );
+                    if (not is_owner) comment_edit->m_offButton->setOpacity(6);
+                    if (not is_owner) comment_edit->m_onButton->setOpacity(6);
+                    menu->addChildAtPosition(
+                        comment_edit, Anchor::TopRight, { -24.f, -6.f }, false
                     );
 
                     text->addChild(menu);
                     text->updateLayout();
                 }
                 //body
-                auto body = public_cast(
-                    MDTextArea::create(m_json["body"].as_string(), { text->getContentWidth(), 10 }),
-                    m_content
-                );
+                auto body = public_cast(mdarea, m_content);
+                body->removeFromParentAndCleanup(0);
                 body->setVisible(1);
                 auto body_container = CCNode::create();
                 body_container->addChild(body);
@@ -354,40 +567,61 @@ public:
             //upd
             row->updateLayout();
         }
-        rowcell->addChild(row);
-        rowcell->setLayout(RowLayout::create());//contentsize
-        rowcell->setAnchorPoint(CCPoint(0.5f, 0.5f));
+        cell->addChild(row);
+        cell->setContentHeight(row->getContentHeight() + cell->getContentHeight());
+
+        cell->setLayout(ColumnLayout::create()->setGap(0)->setCrossAxisOverflow(0));
+        cell->setAnchorPoint(CCPoint(0.5f, 0.5f));
 
         this->setContentWidth(parent->getContentWidth());
-        this->setContentHeight(rowcell->getContentHeight() + padding);
-        this->addChildAtPosition(rowcell, Anchor::Center);
+        this->setContentHeight(cell->getContentHeight() + padding);
+        this->addChildAtPosition(cell
+            , Anchor::Center);
 
         auto bg = CCScale9Sprite::create(
             "square02_small.png"
         );
+        bg->setID("bg");
         bg->setZOrder(-1);
         bg->setOpacity(75);
         bg->setContentSize(this->getContentSize());
-        this->addChildAtPosition(bg, Anchor::Center);
+        this->addChildAtPosition(bg, Anchor::Center, CCPointZero, false);
     }
     //IssueCommentItem
     void deleteComment(CCObject*) {
-        auto a = [this](std::string const& rtn)
+        Ref<LoadingCircle> loadinlr = LoadingCircle::create();
+        loadinlr->setContentSize(this->getContentSize());
+        loadinlr->m_sprite->setPosition({ 12.f, 12.f });
+        loadinlr->m_sprite->setScale(0.25f);
+        loadinlr->setParentLayer(this);
+        loadinlr->addChild(this->getChildByID("bg"));
+        loadinlr->show();
+        auto a = [this, loadinlr](std::string const& rtn)
             {
-                if (auto comments = typeinfo_cast<CCMenuItemSpriteExtra*>(
-                    CCScene::get()->getChildByIDRecursive("comments"))) {
-                    comments->getParent()->setTag(0);//remove prev tab set
-                    comments->activate();//reopen tab
-                };
-                //asd
+                if (loadinlr) loadinlr->removeFromParent();
                 if (this) {
-                    auto parent = this->getParent();
-                    this->removeFromParentAndCleanup(false);
-                    if (parent) parent->updateLayout();
+                    auto contentLayer = typeinfo_cast<CCContentLayer*>(this->getParent());
+                    auto scroll = typeinfo_cast<ScrollLayer*>(contentLayer->getParent());
+                    if (contentLayer and scroll) {
+
+                        contentLayer->setContentHeight(
+                                contentLayer->getContentHeight() 
+                                - this->getContentHeight()
+                                - scroll->getChildByID("scroll_gap")->getTag()
+                            );
+                        if (contentLayer->getContentHeight() < scroll->getContentHeight())
+                            contentLayer->setContentHeight(scroll->getContentHeight());
+
+                        this->removeFromParentAndCleanup(false);
+
+                        contentLayer->updateLayout();
+                        scroll->scrollLayer(0.f);
+                    };
                 };
             };
-        auto b = [this](std::string const& rtn)
+        auto b = [this, loadinlr](std::string const& rtn)
             {
+                if (loadinlr) loadinlr->removeFromParent();
                 auto message = rtn;
                 auto asd = geode::createQuickPopup(
                     "Request exception",
@@ -402,6 +636,9 @@ public:
             [this, a, b](web::WebTask::Event* e) {
                 if (web::WebResponse* res = e->getValue()) {
                     std::string data = res->string().unwrapOr("");
+                    auto json = res->json().value_or(matjson::Value());
+                    if (json.contains("message")) data = json["message"].as_string();
+                    if (json["errors"].is_array()) for (auto err : json["errors"].as_array()) data += ", " + err["message"].as_string();
                     //call the some shit
                     if (res->code() < 399) a(data);
                     else b(data);
@@ -415,8 +652,6 @@ public:
         if (not m_json["user"].contains("html_url")) return;
         else web::openLinkInBrowser(m_json["user"]["html_url"].as_string());
     }
-    void onCreateReaction(CCObject*) {
-    }
 };
 
 class CommentsLayer : public CCLayer {
@@ -427,13 +662,16 @@ public:
         auto scroll = typeinfo_cast<ScrollLayer*>(contentLayer->getParent());
         if (!scroll) return;
 
-        float scroll_gap = 6.f;
+        auto scroll_gap = CCNode::create();
+        scroll_gap->setID("scroll_gap");
+        scroll_gap->setTag(6);
+        scroll->addChild(scroll_gap);
         
         contentLayer->setAnchorPoint(CCPointZero);
         contentLayer->setPositionX(0);
         contentLayer->setLayout(
             ColumnLayout::create()
-            ->setGap(scroll_gap)
+            ->setGap(scroll->getChildByID("scroll_gap")->getTag())
             ->setAxisReverse(true)
             ->setAxisAlignment(AxisAlignment::End)
         );
@@ -443,25 +681,25 @@ public:
         auto startLayer = CCMenu::create();
         startLayer->setAnchorPoint({ 0.5f, 0.f });
         startLayer->setContentSize(
-            { contentLayer->getContentWidth(), 52.f }
+            { contentLayer->getContentWidth(), 44.f }
         );
         if (startLayer) {
             auto header = CCLabelBMFont::create(fmt::format(
                 "Welcome to comments about {}!", modID
-            ).c_str(), "chatFont.fnt");
+            ).c_str(), "geode.loader/mdFontB.fnt");
             if ((startLayer->getContentWidth() - 32.f) < header->getContentWidth())
-                header->setScale((startLayer->getContentWidth() - 46.f) / header->getContentWidth());
-            header->setAnchorPoint({0.5f, 1.f});
-            startLayer->addChildAtPosition(header, Anchor::Top, {0.f, -6.f});
+                header->setScale((startLayer->getContentWidth() - 36.f) / header->getContentWidth());
+            header->setAnchorPoint({0.5f, 0.f});
+            startLayer->addChildAtPosition(header, Anchor::Bottom, { 0.f, 28.f });
             auto startedby = CCLabelBMFont::create(fmt::format(
                 "Started by {}.", mod_issues[modID]["user"].try_get<std::string>("login").value_or("broken user lol")
             ).c_str(), "chatFont.fnt");
             startedby->setOpacity(190);
             startedby->setScale(0.7);
-            startedby->setAnchorPoint({0.5f, 1.f});
-            startLayer->addChildAtPosition(startedby, Anchor::Top, {0.f, -26.f});
+            startedby->setAnchorPoint({0.5f, 0.f});
+            startLayer->addChildAtPosition(startedby, Anchor::Bottom, {0.f, 12.f});
             auto line = CCSprite::createWithSpriteFrameName("floorLine_01_001.png");
-            line->setScaleX((startLayer->getContentWidth() - 46.f) / line->getContentWidth());
+            line->setScaleX((startLayer->getContentWidth()) / line->getContentWidth());
             startLayer->addChildAtPosition(line, Anchor::Bottom, {0.f, 6.f});
         }
         contentLayer->setContentHeight(//make content layer longer
@@ -474,15 +712,13 @@ public:
             auto item = IssueCommentItem::create(contentLayer, comment);
             
             contentLayer->setContentHeight(//make content layer longer
-                contentLayer->getContentHeight() + 
-                item->getContentHeight() + scroll_gap
+                contentLayer->getContentHeight()
+                + item->getContentHeight()
+                + scroll->getChildByID("scroll_gap")->getTag()
             );
 
             contentLayer->addChild(item);
         }
-        contentLayer->setContentHeight(//last line space
-            contentLayer->getContentHeight() - scroll_gap
-        );
         //fix some shit goes when content smaller than scroll
         if (contentLayer->getContentSize().height < scroll->getContentSize().height) {
             contentLayer->setContentSize({
@@ -491,6 +727,9 @@ public:
                 });
         }
         contentLayer->updateLayout();
+        auto peek = (int)(contentLayer->getContentHeight() > scroll->getContentHeight()) * 42.f;
+        scroll->m_peekLimitTop = peek;
+        scroll->m_peekLimitBottom = peek;
         scroll->scrollLayer(contentLayer->getContentSize().height);
     }
 };
@@ -498,7 +737,7 @@ public:
 class LoadCommentsLayer : public CCLayer {
 public:
     EventListener<web::WebTask> m_webTaskListener;
-    static auto create(Ref<CCContentLayer> contentLayer, std::string modID) {
+    static auto create(Ref<CCContentLayer> contentLayer, std::string modID, int page = 1) {
         auto me = new LoadCommentsLayer();
         me->init();
 
@@ -521,8 +760,8 @@ public:
         me->addChildAtPosition(bg, Anchor::Center);
 
         Ref<CCLabelBMFont> label = CCLabelBMFont::create(fmt::format(
-            "Loading comments for {}...", 
-            modID
+            "Loading comments for {}...\npage: {}", 
+            modID, page
             ).data(), "chatFont.fnt"
         );
         label->setAlignment(kCCTextAlignmentCenter);
@@ -535,14 +774,24 @@ public:
         me->addChildAtPosition(circle, Anchor::Top, {0.f, -44.f});
 
         me->m_webTaskListener.bind(
-            [contentLayer, modID, me, label](web::WebTask::Event* e) {
+            [contentLayer, modID, page, me, label](web::WebTask::Event* e) {
                 if (web::WebResponse* res = e->getValue()) {
                     auto json = res->json();
                     auto string = res->string();
                     if (json.has_value()) {
-                        mod_comments[modID] = json.value();
+                        if (mod_comments[modID].is_array()) {
+                            for (auto comment : json.value().as_array()) {
+                                mod_comments[modID].as_array().push_back(comment);
+                            }
+                        }
+                        else {
+                            mod_comments[modID] = json.value();
+                        }
                         me->removeFromParent();
-                        if (contentLayer) CommentsLayer::create(contentLayer, modID);
+                        if (json.value().as_array().size() < 100) {
+                            if (contentLayer) CommentsLayer::create(contentLayer, modID);
+                        }
+                        else LoadCommentsLayer::create(contentLayer, modID, (page + 1));
                     }
                     else if (label) label->setString(fmt::format(
                         "{}\n{}",
@@ -558,6 +807,8 @@ public:
         );
 
         auto req = ghAccount::get_basic_web_request();
+        req.param("page", page);
+        req.param("per_page", 100);
         me->m_webTaskListener.setFilter(req.get(
             mod_issues[modID].try_get<std::string>("comments_url").value_or("")
         ));
@@ -627,6 +878,7 @@ public:
 
                         if (mod_issues.contains(modID)) {
                             me->removeFromParent();
+                            mod_comments.erase(modID);
                             if (contentLayer) LoadCommentsLayer::create(contentLayer, modID);
                         }
                         else {
@@ -736,7 +988,6 @@ void hi() {
 
             if (tabsMenu->getChildByID("comments")) void();
             else {
-                CCSpriteFrameCache::get()->addSpriteFrame(CCSprite::create("chat.png"_spr)->displayFrame(), "chat.png"_spr);
                 auto tabspr = GeodeTabSprite::create("chat.png"_spr, "Comments", 140.f);
                 tabspr->select(0);
 
@@ -803,11 +1054,18 @@ void hi() {
                                 380.f, 
                                 [input, modID, sender, old_lis, old_sel](CCNode*, bool create) {
                                     if (not create) return;
+                                    Ref<LoadingCircle> loadinlr = LoadingCircle::create();
+                                    loadinlr->setID("loadinlr");
+                                    loadinlr->setFade(true);
+                                    loadinlr->show();
+                                    loadinlr->setTouchEnabled(1);
+                                    handleTouchPriority(loadinlr);
                                     auto data = input->getString();
                                     auto body = matjson::parse("{\"body\": \"\"}");
                                     body["body"] = data;
-                                    auto a = [sender, old_lis, old_sel](std::string const& rtn)
+                                    auto a = [sender, loadinlr](std::string const& rtn)
                                         {
+                                            if (loadinlr) loadinlr->fadeAndRemove();
                                             if (string::contains(rtn, "\"body\":")) {
                                                 sender->getParent()->setTag(0);//remove prev tab
                                                 sender->activate();//reopen tab
@@ -821,8 +1079,9 @@ void hi() {
                                             );
                                             asd->show();
                                         };
-                                    auto b = [](std::string const& rtn)
+                                    auto b = [loadinlr](std::string const& rtn)
                                         {
+                                            if (loadinlr) loadinlr->fadeAndRemove();
                                             auto message = rtn;
                                             auto asd = geode::createQuickPopup(
                                                 "Request exception",
@@ -837,6 +1096,9 @@ void hi() {
                                         [a, b](web::WebTask::Event* e) {
                                             if (web::WebResponse* res = e->getValue()) {
                                                 std::string data = res->string().unwrapOr("");
+                                                auto json = res->json().value_or(matjson::Value());
+                                                if (json.contains("message")) data = json["message"].as_string();
+                                                if (json["errors"].is_array()) for (auto err : json["errors"].as_array()) data += ", " + err["message"].as_string();
                                                 //call the some shit
                                                 if (res->code() < 399) a(data);
                                                 else b(data);
@@ -861,6 +1123,8 @@ void hi() {
                             textarea->setVisible(0);
                             auto comments_scroll_size = textarea->getParent()->getContentSize();
                             auto comments_scroll = ScrollLayer::create(comments_scroll_size);
+                            comments_scroll->m_peekLimitTop = 0;
+                            comments_scroll->m_peekLimitBottom = 0;
                             comments_scroll->setID("comments_scroll");
                             textarea->getParent()->addChild(comments_scroll);
                             LoadIssuesLayer::create(
@@ -880,7 +1144,7 @@ void hi() {
                                     sender->getParent()->setTag(0);//remove prev tab set
                                     sender->activate();//reopen tab
                                 }
-                            ), Anchor::BottomRight, { -6.f, 6.f});
+                            ), Anchor::BottomRight, { -3.f, 6.f});
                             //github
                             auto githubitem = CCMenuItemExt::createSpriteExtraWithFrameName(
                                 "geode.loader/github.png", 0.56f, [sender](CCMenuItemSpriteExtra*) {
