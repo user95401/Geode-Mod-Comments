@@ -392,7 +392,7 @@ public:
                     sprite->initWithFile(filep.string().c_str());
                     sprite->setScale(avatar->getContentWidth() / sprite->getContentSize().width);
                     auto error_code = std::error_code();
-                    std::filesystem::remove(filep, error_code);
+                    //std::filesystem::remove(filep, error_code);
                     };
                 auto req = web::WebRequest();
                 auto listener = new EventListener<web::WebTask>;
