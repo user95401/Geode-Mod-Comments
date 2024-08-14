@@ -340,7 +340,8 @@ public:
                                 if (itsme) tab->select(itsme);
                                 item->setTag(reaction["id"].as_int());//for delete
                             };
-                            auto page = utils::numFromString<int>(req->getUrlParams().at("page")).value_or(1);
+                            auto params = req->getUrlParams();// .at("page");
+                            auto page = utils::numFromString<int>(params.contains("page") ? params.at("page") : 0).value_or(1);
                             if (json.value().as_array().size() < 100) {
                                 //final
                                 loading->removeFromParent();
