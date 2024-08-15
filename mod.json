@@ -8,7 +8,7 @@
 	},
 	"id": "user95401.geode-mod-comments",
 	"name": "Mod Comments",
-	"version": "v1.0.0-alpha.4",
+	"version": "v1.0.0-beta",
 	"developer": "user95401",
 	"description": "add comments in mod popups",
 	"links": {
@@ -37,5 +37,13 @@
 			"version": ">=v1.13.1",
 			"importance": "required"
 		}
-	]
+	],
+	"settings": {
+		"Clear Text For Comment Edit": {
+			"name": "Clear Text For Comment Edit",
+			"description": "clear data in input to start writing new text",
+			"type": "bool",
+			"default": false
+		}
+	}
 }

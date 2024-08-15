@@ -392,7 +392,7 @@ public:
                     sprite->initWithFile(filep.string().c_str());
                     sprite->setScale(avatar->getContentWidth() / sprite->getContentSize().width);
                     auto error_code = std::error_code();
-                    //std::filesystem::remove(filep, error_code);
+                    std::filesystem::remove(filep, error_code);
                     };
                 auto req = web::WebRequest();
                 auto listener = new EventListener<web::WebTask>;
@@ -409,8 +409,6 @@ public:
                     }
                 );
                 listener->setFilter(req.send("GET", m_json["user"]["avatar_url"].as_string()));
-                /* web::AsyncWebRequest().fetch(m_json["user"]["avatar_url"].as_string())
-                        .into(filep).then(a).expect(b);*/
             }
             //text
             if (auto text = CCNode::create()) {
@@ -476,14 +474,17 @@ public:
                     );
 
                     //edit
-                    auto comment_edit_input = TextInput::create(120.f, "ew");
+                    auto comment_edit_input = TextInput::create(240.f, "...");
+                    comment_edit_input->setString(mdarea->getString());
                     comment_edit_input->setVisible(0);
-                    this->addChild(comment_edit_input);
+                    this->addChild(comment_edit_input, 1);
                     auto comment_edit = CCMenuItemExt::createTogglerWithFilename(
                         "comment_upload.png"_spr, "comment_edit.png"_spr, 0.7f,
                         [this, mdarea, comment_edit_input](CCMenuItemToggler* item) {
                             if (not item->m_toggled) {
-                                comment_edit_input->setString(mdarea->getString());
+                                if (SETTING(bool, "Clear Text For Comment Edit"))
+                                    comment_edit_input->setString("");
+                                else comment_edit_input->setString(mdarea->getString());
                                 comment_edit_input->setCallback(
                                     [mdarea, comment_edit_input](std::string str) {
                                         auto endl_filtered = string::replace(str, "\\n", "\n");
