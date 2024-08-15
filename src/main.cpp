@@ -476,7 +476,7 @@ public:
                     //edit
                     auto comment_edit_input = TextInput::create(240.f, "...");
                     comment_edit_input->setString(mdarea->getString());
-                    comment_edit_input->setVisible(0);
+                    comment_edit_input->setPositionX(999.0f);
                     this->addChild(comment_edit_input, 1);
                     auto comment_edit = CCMenuItemExt::createTogglerWithFilename(
                         "comment_upload.png"_spr, "comment_edit.png"_spr, 0.7f,
