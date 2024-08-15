@@ -308,7 +308,7 @@ public:
             auto rocket = addBtn("rocket", "rocket.png"_spr);
             auto eyes = addBtn("eyes", "eyes.png"_spr);
             auto loading = LoadingSpinner::create(1.f);
-            react_row->addChild(loading);
+            react_row->addChild(loading, 0, 1);
             react_row->setTouchEnabled(0);
             react_row->setContentHeight(18.000f);//temp
             react_row->setContentWidth(parent->getContentWidth());
@@ -323,9 +323,9 @@ public:
             cell->addChild(react_row);
             cell->setContentHeight(react_row->getContentHeight() + cell->getContentHeight());
             //loadthereactionsfk
-            std::function<void(int)> load;
-            auto req = ghAccount::create_basic_web_request();
-            auto bindfn = [req, reactions, load, react_row, loading, loggedinuser_id](web::WebTask::Event* e)
+            std::function<void()> load;
+            auto listener = new EventListener<web::WebTask>;
+            auto bindfn = [reactions, load, react_row, loading, loggedinuser_id](web::WebTask::Event* e)
                 {
                     if (web::WebResponse* res = e->getValue()) {
                         auto json = res->json();
@@ -340,28 +340,28 @@ public:
                                 if (itsme) tab->select(itsme);
                                 item->setTag(reaction["id"].as_int());//for delete
                             };
-                            auto params = req->getUrlParams();// .at("page");
-                            auto page = utils::numFromString<int>(params.contains("page") ? params.at("page") : 0).value_or(1);
+                            auto page = loading ? loading->getTag() : 1;
+                            loading->setTag(page + 1);
                             if (json.value().as_array().size() < 100) {
                                 //final
                                 loading->removeFromParent();
                                 react_row->setTouchEnabled(1);
                             }
-                            else load(page + 1);
+                            else load();
                         }
                     };
                 };
-            load = [req, bindfn, reactions](int page)
+            load = [listener, bindfn, reactions, loading]()
                 {
-                    req->param("page", page);
-                    req->param("per_page", 100);
-                    auto listener = new EventListener<web::WebTask>;
+                    auto req = ghAccount::get_basic_web_request();
+                    if (loading) req.param("page", loading->getTag());
+                    req.param("per_page", 100);
                     listener->bind(bindfn);
-                    listener->setFilter(req->get(
+                    listener->setFilter(req.get(
                         reactions.try_get<std::string>("url").value_or("")
                     ));
                 };
-            load(1);
+            load();
         }
 
         //cell row
