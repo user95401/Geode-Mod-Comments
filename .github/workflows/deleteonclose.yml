@@ -1,0 +1,13 @@
+name: delete closed issue
+permissions:
+  contents: write
+on:
+  issues:
+    types: [closed]
+jobs:
+  delete-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: vtcaregorodtcev/delete-issue@main
+        with:
+          issue_node_id: ${{ github.event.issue.node_id }}
