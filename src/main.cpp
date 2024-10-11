@@ -330,15 +330,9 @@ void notifyLoadLoop() {
     ), nullptr);
 
     Ref<CCActionInstant> waitForUser;
-    static auto attempts = 0;
     waitForUser = CCLambdaAction::create(
         [notifyLoader, waitForUser, getNotifications]() {
-            if (attempts > 7) return;
-            attempts += 1;
-            if (ghAccount::user.contains("login")) {
-                attempts = 0;
-                notifyLoader->runAction(getNotifications);
-            }
+            if (ghAccount::user.contains("login")) notifyLoader->runAction(getNotifications);
             else notifyLoader->runAction(CCSequence::create(CCDelayTime::create(0.1f), CCSpawn::create(waitForUser, nullptr), nullptr));
         }
     );
