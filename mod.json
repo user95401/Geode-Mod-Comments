@@ -1,5 +1,5 @@
 {
-	"geode": "3.4.0",
+	"geode": "3.8.1",
 	"gd": {
 		"win": "2.206",
 		"android": "2.206",
@@ -8,11 +8,13 @@
 	},
 	"id": "user95401.geode-mod-comments",
 	"name": "Mod Comments",
-	"version": "v1.0.0",
+	"version": "v1.2.0",
 	"developer": "user95401",
 	"description": "add comments in mod popups",
+	"tags": [ "online", "enhancement", "interface", "content", "developer" ],
 	"links": {
-		"homepage": "https://user95401.7m.pl/geode-mod-comments",
+		"community": "https://discord.gg/6SxAbk3bTA",
+		"homepage": "https://t.me/user95401_channel/6",
 		"source": "https://github.com/user95401/Geode-Mod-Comments"
 	},
 	"resources": {

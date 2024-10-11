@@ -1,8 +1,6 @@
-#include <Geode/Geode.hpp>
+#include <_main.hpp>
 #include <Geode/utils/web.hpp>
 #include <GeodeUI.hpp>
-
-using namespace geode::prelude;
 
 //hi
 
@@ -75,6 +73,7 @@ public:
         return req;
     }
 };
+
 class GitHubAuthPopup : public FLAlertLayer, FLAlertLayerProtocol {
 public:
     virtual void FLAlert_Clicked(FLAlertLayer* p0, bool p1) {
@@ -178,10 +177,10 @@ public:
         }
         //back"Back"
         if (p0->getID() == "finish" and not p1) {
-            show_info();
+            showInfo();
         }
     };
-    static void show_info() {
+    static void showInfo() {
         auto protocol = new GitHubAuthPopup;
         auto pop = FLAlertLayer::create(
             protocol,
@@ -200,7 +199,7 @@ public:
         input->setString(utils::clipboard::read());
     };
     void onOpenupBtn(CCObject*) {
-        show_info();
+        showInfo();
     }
 };
 
@@ -1150,7 +1149,7 @@ void hi() {
                             //github
                             auto githubitem = CCMenuItemExt::createSpriteExtraWithFrameName(
                                 "geode.loader/github.png", 0.56f, [sender](CCMenuItemSpriteExtra*) {
-                                    GitHubAuthPopup::show_info();
+                                    GitHubAuthPopup::showInfo();
                                 }
                             );
                             githubitem->setID("githubitem");
