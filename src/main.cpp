@@ -250,6 +250,7 @@ void GitHubAuthPopup_showInfo() {
 
 std::map<std::string, int> new_comments;
 void notifyLoadLoop() {
+#ifndef __APPLE__
     if (!SETTING(bool, "Notifications"))return;
 
     Ref<CCNode> notifyLoader = CCNode::create();
@@ -343,6 +344,7 @@ void notifyLoadLoop() {
     );
 
     notifyLoader->runAction(waitForUser);
+#endif
 }
 
 $on_mod(Loaded){ 

@@ -87,6 +87,7 @@ namespace geode::cocos {
         if (!node) log::warn("FAILED TO FIND DATA NODE! id: {}", id);
         return node;
     }
+#ifndef __APPLE__
     class CCLambdaAction : public CCActionInstant {
     public:
         std::function<void()> m_callback;
@@ -106,6 +107,7 @@ namespace geode::cocos {
             return nullptr;
         };
     };
+#endif
 };
 
 namespace geode::utils::string {
