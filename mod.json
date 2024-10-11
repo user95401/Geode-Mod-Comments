@@ -46,6 +46,18 @@
 			"description": "clear data in input to start writing new text",
 			"type": "bool",
 			"default": false
+		},
+		"Notifications": {
+			"name": "Notifications",
+			"description": "Notifications",
+			"type": "bool",
+			"default": true
+		},
+		"Auth Warn": {
+			"name": "Auth Warn",
+			"description": "Auth Warn",
+			"type": "bool",
+			"default": true
 		}
 	}
 }

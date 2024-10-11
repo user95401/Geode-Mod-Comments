@@ -21,6 +21,8 @@
 	return c.get(reinterpret_cast<FriendeeClass__*>(v)); \
 }(value)
 
+void GitHubAuthPopup_showInfo();
+
 class ghAccount {
 public:
     inline static auto api_repo_url = std::string(
@@ -37,7 +39,34 @@ public:
                 if (web::WebResponse* res = e->getValue()) {
                     auto json = res->json();
                     auto string = res->string();
-                    if (json.has_value()) user = json.value();
+                    if (json.value_or(matjson::Value()).contains("id")) user = json.value();
+                    else if (SETTING(bool, "Auth Warn")) {
+                        Ref<FLAlertLayer> warnPopup;
+                        warnPopup = createQuickPopup(
+                            "Account Authorization",
+                            "You got that message\n"
+                            "from <cy>Geode Mod Comments</c> modification.\n"
+                            "You should <cg>authorizate your github account</c> \n"
+                            "if you want <cb>to use this mod</c>...",
+                            "Die", "Authorization",
+                            [warnPopup](CCNode* p0, bool p1) {
+                                SceneManager::get()->forget(p0);
+                                p0->removeFromParent();
+                                if (!p1) return;
+                                GitHubAuthPopup_showInfo();
+                            }, false
+                        );
+                        warnPopup->setOpacity(0);
+                        warnPopup->setPosition({ - 99.f, -64.f });
+                        auto shadow = CCSprite::create("groundSquareShadow_001.png"_spr);
+                        shadow->setPosition({ 2232.f, 64.f });
+                        shadow->setScaleX(2.475f);
+                        shadow->setScaleY(99.f);
+                        shadow->setRotation(-90.f);
+                        shadow->setAnchorPoint(CCPoint(0.f, 0.f));
+                        warnPopup->addChild(shadow, -1);
+                        SceneManager::get()->keepAcrossScenes(warnPopup);
+                    }
                 }
             }
         );
@@ -47,10 +76,10 @@ public:
         ));
     }
     static std::string get_token() {
-        return Mod::get()->getSavedValue<std::string>("gh_access_token");
+        return Mod::get()->getSavedValue<std::string>("gh_access_token.v2");
     }
     static void set_token(std::string token) {
-        Mod::get()->setSavedValue("gh_access_token", token);
+        Mod::get()->setSavedValue("gh_access_token.v2", token);
         Mod::get()->saveData();
         user = matjson::Value();
         try_load_user();
@@ -81,7 +110,7 @@ public:
         //info"Continue"
         if (p0->getID() == "info" and p1) {
             //open auth apps idk
-            web::openLinkInBrowser("https://user95401.7m.pl/geode-mod-comments/auth");
+            web::openLinkInBrowser("http://user95401.zya.me/geode-mod-comments/auth");
             //finish pop
             auto pop = FLAlertLayer::create(
                 protocol,
@@ -182,10 +211,22 @@ public:
     };
     static void showInfo() {
         auto protocol = new GitHubAuthPopup;
+        auto additional_info = std::string("");
+        if (ghAccount::user.contains("login")) {
+            auto temp_stream = std::stringstream();
+            temp_stream << "\n";
+            temp_stream << "\n";
+            temp_stream << "Loged in: " << ghAccount::user.try_get<std::string>("login").value_or("ERR");
+            temp_stream << "(" << ghAccount::user.try_get<int>("id").value_or(-1) << std::string(")");
+            temp_stream << "\n";
+            temp_stream << "Name: " << ghAccount::user.try_get<std::string>("name").value_or("ERR");
+            additional_info = temp_stream.str();
+        }
         auto pop = FLAlertLayer::create(
             protocol,
             "Authorization",
-            "<co>Authorize</c> your <cy>GitHub Account</c> to <cg>reduce</c> <cr>limits</c> and be <cg>able to create comments</c> in game.\nAfter click on the <co>\"Continue\" button</c> you will be <cr>redirected to</c> <cy>browser auth interfaces</c>.",
+            "<co>Authorize</c> your <cy>GitHub Account</c> to <cg>reduce</c> <cr>limits</c> and be <cg>able to create comments</c> in game.\n\n<cy>Continue</c> button <co>redirect you to</c> <cy>browser auth interfaces</c>."
+            + additional_info,
             "Abort", "Continue",
             360.f
         );
@@ -203,7 +244,111 @@ public:
     }
 };
 
-$on_mod(Loaded){ ghAccount::try_load_user(); }
+void GitHubAuthPopup_showInfo() {
+    GitHubAuthPopup::showInfo();
+}
+
+std::map<std::string, int> new_comments;
+void notifyLoadLoop() {
+    if (!SETTING(bool, "Notifications"))return;
+
+    Ref<CCNode> notifyLoader = CCNode::create();
+    notifyLoader->setID("notifyLoader"_spr);
+    SceneManager::get()->keepAcrossScenes(notifyLoader);
+
+    Ref<CCSequence> getNotifications;
+    getNotifications = CCSequence::create(CCLambdaAction::create(
+        [notifyLoader]() {
+            auto listener = (new EventListener<web::WebTask>);
+            listener->bind(
+                [](web::WebTask::Event* e) {
+                    if (web::WebResponse* res = e->getValue()) {
+                        auto json = res->json();
+                        auto string = res->string();
+                        if (json.has_value()) {
+                            auto value = json.value();
+                            //log::debug("{}", value.dump());
+                            //MDPopup::create("BCKPOICI DUPAK", "```\n" + value.dump() + "\n```", "NAH")->show();
+                            if (string::contains(value.dump(), "\"last_read_at\"")) {
+                                auto notifications = value.as_array();
+                                auto NotificationNode = Notification::create(
+                                    "New Comments [click me]",
+                                    getChildOfType<CCSprite>(createModLogo(getMod()), 0),
+                                    3.f
+                                );
+                                NotificationNode->show();
+                                auto touchZone = CCMenuItemExt::create(
+                                    [notifications](auto) {
+                                        auto listener = (new EventListener<web::WebTask>);
+                                        listener->bind(
+                                            [](web::WebTask::Event* e) {
+                                                if (web::WebResponse* res = e->getValue()) {
+                                                    //log::debug("{}", res->code());
+                                                }
+                                            }
+                                        );
+                                        listener->setFilter(ghAccount::get_basic_web_request().send(
+                                            "PUT", ghAccount::api_repo_url + "/notifications"
+                                        ));
+
+                                        auto content = std::stringstream();
+                                        for (auto notification : notifications) {
+                                            if (notification.contains("subject")) {
+                                                auto subject = notification["subject"];
+                                                auto id = subject.try_get<std::string>("title").value_or("subject.title.err");
+                                                content << "- [" << id << "](mod:" << id << ")\n";
+
+                                                auto latest_comment_url = subject["latest_comment_url"].dump();
+                                                new_comments[latest_comment_url] = 0;
+                                            }
+                                        }
+                                        MDPopup::create("New comments:", content.str(), "OK")->show();
+
+                                    }
+                                );
+                                NotificationNode->setPosition({ 115.f, 15.f });
+                                NotificationNode->addChild(CCMenu::createWithItem(touchZone));
+                                touchZone->setContentSize({ 325.f, 65.f });
+                                touchZone->setPosition(CCPointZero);
+                                touchZone->getParent()->setPosition(CCPointZero);
+                            }
+                        }
+                    }
+                }
+            );
+            listener->setFilter(ghAccount::get_basic_web_request().send(
+                "GET", ghAccount::api_repo_url + "/notifications"
+            ));
+        }
+    ), CCDelayTime::create(6.0f), CCLambdaAction::create(
+        [notifyLoader]() {
+            SceneManager::get()->forget(notifyLoader);
+            notifyLoader->removeFromParent();
+            notifyLoadLoop();
+        }
+    ), nullptr);
+
+    Ref<CCActionInstant> waitForUser;
+    static auto attempts = 0;
+    waitForUser = CCLambdaAction::create(
+        [notifyLoader, waitForUser, getNotifications]() {
+            if (attempts > 7) return;
+            attempts += 1;
+            if (ghAccount::user.contains("login")) {
+                attempts = 0;
+                notifyLoader->runAction(getNotifications);
+            }
+            else notifyLoader->runAction(CCSequence::create(CCDelayTime::create(0.1f), CCSpawn::create(waitForUser, nullptr), nullptr));
+        }
+    );
+
+    notifyLoader->runAction(waitForUser);
+}
+
+$on_mod(Loaded){ 
+    ghAccount::try_load_user();
+    notifyLoadLoop();
+}
 
 inline auto issues = matjson::Value();
 inline std::map<std::string, matjson::Value> mod_issues;
@@ -223,6 +368,7 @@ public:
     void customSetup(CCNode* parent) {
         this->setContentWidth(parent->getContentWidth());
 
+        auto comment_url = m_json["url"].dump();
         auto comment_user_id = m_json["user"]["id"].as_int();
         auto loggedinuser_id = ghAccount::user.try_get<int>("id").value_or(0);
         auto is_owner = (comment_user_id == loggedinuser_id);
@@ -584,7 +730,9 @@ public:
         );
         bg->setID("bg");
         bg->setZOrder(-1);
-        bg->setOpacity(75);
+        bg->setOpacity(
+            new_comments.contains(comment_url) ? 120 : 75
+        ); new_comments.erase(comment_url);
         bg->setContentSize(this->getContentSize());
         this->addChildAtPosition(bg, Anchor::Center, CCPointZero, false);
     }
@@ -924,6 +1072,8 @@ public:
             req.bodyJSON(body);
         }
         else {
+            req.param("sort", "created");
+            req.param("direction", "asc");
             req.param("page", page);
             req.param("per_page", 100);
             req.param("state", "all");
