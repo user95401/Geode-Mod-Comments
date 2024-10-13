@@ -189,7 +189,7 @@ public:
                         std::string error;
                         auto json_val = matjson::parse(data, error);
                         if (error.size() > 0) return b("Error parsing JSON: " + error);
-                        //call the some shit
+                        //call the some stuff
                         if (res->code() < 399) a(json_val);
                         else b(data);
                     }
@@ -541,7 +541,7 @@ public:
                     [this, a, filep](web::WebTask::Event* e) {
                         if (web::WebResponse* res = e->getValue()) {
                             std::string data = res->string().unwrapOr("");
-                            //call the some shit
+                            //call the some stuff
                             if (res->code() < 399) {
                                 res->into(filep);
                                 a(std::monostate());
@@ -784,7 +784,7 @@ public:
                     auto json = res->json().value_or(matjson::Value());
                     if (json.contains("message")) data = json["message"].as_string();
                     if (json["errors"].is_array()) for (auto err : json["errors"].as_array()) data += ", " + err["message"].as_string();
-                    //call the some shit
+                    //call the some stuff
                     if (res->code() < 399) a(data);
                     else b(data);
                 }
@@ -864,7 +864,7 @@ public:
 
             contentLayer->addChild(item);
         }
-        //fix some shit goes when content smaller than scroll
+        //fix some stuff goes when content smaller than scroll
         if (contentLayer->getContentSize().height < scroll->getContentSize().height) {
             contentLayer->setContentSize({
                 contentLayer->getContentSize().width,
@@ -1246,7 +1246,7 @@ void hi() {
                                                 auto json = res->json().value_or(matjson::Value());
                                                 if (json.contains("message")) data = json["message"].as_string();
                                                 if (json["errors"].is_array()) for (auto err : json["errors"].as_array()) data += ", " + err["message"].as_string();
-                                                //call the some shit
+                                                //call the some stuff
                                                 if (res->code() < 399) a(data);
                                                 else b(data);
                                             }

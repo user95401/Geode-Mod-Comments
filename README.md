@@ -9,6 +9,6 @@ You will be [blocked](https://docs.github.com/en/communities/maintaining-your-sa
 - **spam** (many messages, flood, very big text walls)
 - ~~excessive cursing~~
 - advertising
-- and other obvious **bad** shit
+- and other obvious **bad** stuff
 
 If you see someone doin that, [create report issue](https://github.com/user95401/Geode-Mod-Comments/issues/new/choose) by template!
