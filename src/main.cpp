@@ -144,7 +144,7 @@ public:
         if (p0->getID() == "finish" and p1) {
             //code
             auto code = std::string("");
-            auto input = dynamic_cast<TextInput*>(p0->getChildByIDRecursive("input"));
+            auto input = typeinfo_cast<TextInput*>(p0->getChildByIDRecursive("input"));
             if (input) code = input->getString();
             //
             auto a = [this, protocol](matjson::Value const& catgirl) {
@@ -234,9 +234,9 @@ public:
         pop->show();
     }
     void onPasteToInput(CCObject* btnObj) {
-        auto btn = dynamic_cast<CCNode*>(btnObj);
+        auto btn = typeinfo_cast<CCNode*>(btnObj);
         auto menu = btn->getParent();
-        auto input = dynamic_cast<TextInput*>(menu->getChildByIDRecursive("input"));
+        auto input = typeinfo_cast<TextInput*>(menu->getChildByIDRecursive("input"));
         input->setString(utils::clipboard::read());
     };
     void onOpenupBtn(CCObject*) {

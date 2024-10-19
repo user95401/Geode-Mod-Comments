@@ -48,9 +48,9 @@ namespace geode::cocos {
     }
     inline std::string frameName(CCNode* node) {
         if (node == nullptr) return "NIL_NODE";
-        if (auto textureProtocol = dynamic_cast<CCTextureProtocol*>(node)) {
+        if (auto textureProtocol = typeinfo_cast<CCTextureProtocol*>(node)) {
             if (auto texture = textureProtocol->getTexture()) {
-                if (auto spriteNode = dynamic_cast<CCSprite*>(node)) {
+                if (auto spriteNode = typeinfo_cast<CCSprite*>(node)) {
                     auto* cachedFrames = CCSpriteFrameCache::sharedSpriteFrameCache()->m_pSpriteFrames;
                     const auto rect = spriteNode->getTextureRect();
                     for (auto [key, frame] : CCDictionaryExt<std::string, CCSpriteFrame*>(cachedFrames)) {
