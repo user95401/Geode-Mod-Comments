@@ -2,25 +2,6 @@
 #include <Geode/utils/web.hpp>
 #include <GeodeUI.hpp>
 
-//hi
-
-#define SETTING(type, key_name) Mod::get()->getSettingValue<type>(key_name)
-
-#define public_cast(value, member) \
-[](auto* v) { \
-	class FriendClass__; \
-	using T = std::remove_pointer<decltype(v)>::type; \
-	class FriendeeClass__: public T { \
-	protected: \
-		friend FriendClass__; \
-	}; \
-	class FriendClass__ { \
-	public: \
-		auto& get(FriendeeClass__* v) { return v->member; } \
-	} c; \
-	return c.get(reinterpret_cast<FriendeeClass__*>(v)); \
-}(value)
-
 void GitHubAuthPopup_showInfo();
 
 class ghAccount {
@@ -56,15 +37,7 @@ public:
                                 GitHubAuthPopup_showInfo();
                             }, false
                         );
-                        warnPopup->setOpacity(0);
-                        warnPopup->setPosition({ - 99.f, -64.f });
-                        auto shadow = CCSprite::create("groundSquareShadow_001.png"_spr);
-                        shadow->setPosition({ 2232.f, 64.f });
-                        shadow->setScaleX(2.475f);
-                        shadow->setScaleY(99.f);
-                        shadow->setRotation(-90.f);
-                        shadow->setAnchorPoint(CCPoint(0.f, 0.f));
-                        warnPopup->addChild(shadow, -1);
+                        warnPopup->setContentWidth(8647.000f);
                         SceneManager::get()->keepAcrossScenes(warnPopup);
                     }
                 }
@@ -216,19 +189,20 @@ public:
             auto temp_stream = std::stringstream();
             temp_stream << "\n";
             temp_stream << "\n";
-            temp_stream << "Loged in: " << ghAccount::user.try_get<std::string>("login").value_or("ERR");
-            temp_stream << "(" << ghAccount::user.try_get<int>("id").value_or(-1) << std::string(")");
+            temp_stream << "Hi, " << ghAccount::user.try_get<std::string>("login").value_or("ERR");
+            temp_stream << "! [id:" << ghAccount::user.try_get<int>("id").value_or(-1) << "]";
             temp_stream << "\n";
-            temp_stream << "Name: " << ghAccount::user.try_get<std::string>("name").value_or("ERR");
+            temp_stream << "Your access token was saved, login isn't needed!";
+            temp_stream << "\n";
             additional_info = temp_stream.str();
         }
         auto pop = FLAlertLayer::create(
             protocol,
             "Authorization",
-            "<co>Authorize</c> your <cy>GitHub Account</c> to <cg>reduce</c> <cr>limits</c> and be <cg>able to create comments</c> in game.\n\n<cy>Continue</c> button <co>redirect you to</c> <cy>browser auth interfaces</c>."
+            "<co>Authorize</c> your <cy>GitHub Account</c> to <cg>reduce</c> <cr>limits</c>\nand <cg>be able to create comments</c> in game.\n\n<co>Now you should continue in</c> <cy>browser auth interfaces</c>."
             + additional_info,
             "Abort", "Continue",
-            360.f
+            390.f
         );
         pop->setID("info");
         pop->show();
@@ -329,7 +303,7 @@ void notifyLoadLoop() {
         }
     ), nullptr);
 
-    Ref<CCActionInstant> waitForUser;
+    Ref<CCActionInterval> waitForUser;
     waitForUser = CCLambdaAction::create(
         [notifyLoader, waitForUser, getNotifications]() {
             if (ghAccount::user.contains("login")) notifyLoader->runAction(getNotifications);
@@ -563,7 +537,7 @@ public:
                 text->setContentWidth(parent->getContentWidth() - avatar_size.width);
                 //menu user text
                 CCLabelBMFont* user;
-                MDTextArea* mdarea = MDTextArea::create(m_json["body"].as_string(), { text->getContentWidth(), 10 });
+                Ref<MDTextArea> mdarea = MDTextArea::create(m_json["body"].as_string(), { text->getContentWidth(), 10 });
                 if (auto menu = CCMenu::create()) {
 
                     //user
@@ -623,26 +597,45 @@ public:
                         "comment_upload.png"_spr, "comment_edit.png"_spr, 0.7f,
                         [this, mdarea, comment_edit_input](CCMenuItemToggler* item) {
                             if (not item->m_toggled) {
-                                if (SETTING(bool, "Clear Text For Comment Edit"))
-                                    comment_edit_input->setString("");
-                                else comment_edit_input->setString(mdarea->getString());
+
+
+                                if (SETTING(bool, "Clear Text For Comment Edit")) if (comment_edit_input) comment_edit_input->setString("");
+                                else comment_edit_input ? comment_edit_input->setString(mdarea ? mdarea->getString() : "ERROR.") : void();
+
                                 comment_edit_input->setCallback(
                                     [mdarea, comment_edit_input](std::string str) {
                                         auto endl_filtered = string::replace(str, "\\n", "\n");
                                         if (str.find("\\n") != std::string::npos) {
                                             comment_edit_input->setString(endl_filtered.data());
                                         }
-                                        mdarea->setString(endl_filtered.data());
-                                        if (auto body_container = public_cast(mdarea, m_content)->getParent()) {
+                                        //log::debug("{}->setString({})", mdarea, endl_filtered);
+                                        if (mdarea != nullptr and !endl_filtered.empty()) mdarea->setString(endl_filtered.c_str());
+                                        if (auto body_container = public_cast(mdarea.data(), m_content)->getParent()) {
                                             body_container->updateLayout();
                                             body_container->getParent()->updateLayout();
                                             body_container->getParent()->getParent()->updateLayout();
                                         };
                                     }
                                 );
-                                comment_edit_input->focus();
+                                Ref<LambdaNode> focus = LambdaNode::createToEndlessCalls(
+                                    [comment_edit_input]() {
+                                        comment_edit_input->focus();
+                                    }, 0.1f
+                                );
+                                focus->setID("focus");
+                                this->addChild(focus);
+                                auto focusAnim = CCRepeatForever::create(CCSequence::create(
+                                    CCEaseSineInOut::create(CCFadeTo::create(1.f, 100)),
+                                    CCEaseSineInOut::create(CCFadeTo::create(1.f, 75)),
+                                    nullptr
+                                ));
+                                focusAnim->setTag(76230);
+                                if (auto bg = this->getChildByIDRecursive("bg")) bg->runAction(focusAnim);
                             }
                             else {
+                                if (auto bg = this->getChildByIDRecursive("bg")) bg->stopActionByTag(76230);
+                                if (auto bg = this->getChildByIDRecursive("bg")) bg->runAction(CCFadeTo::create(0.5f, 75));
+                                this->removeChildByID("focus");
                                 comment_edit_input->defocus();
                                 Ref<LoadingCircle> loadinlr = LoadingCircle::create();
                                 loadinlr->setContentSize(this->getContentSize());
@@ -673,7 +666,7 @@ public:
                                             ntfy->show();
 
                                             auto body = json.try_get<std::string>("body").value_or(m_json["body"].as_string());
-                                            comment_edit_input->setString(body, 1);
+                                            comment_edit_input->setString(CCLabelTTF::create(body.c_str(), "", 1)->getString(), 1);
                                         }
                                     }
                                 );
@@ -694,7 +687,7 @@ public:
                     text->updateLayout();
                 }
                 //body
-                auto body = public_cast(mdarea, m_content);
+                auto body = public_cast(mdarea.data(), m_content);
                 body->removeFromParentAndCleanup(0);
                 body->setVisible(1);
                 auto body_container = CCNode::create();
@@ -1323,3 +1316,12 @@ void hi() {
 }
 
 $execute{ hi(); }
+
+#include <Geode/modify/CCLayer.hpp>
+class $modify(NewlineCharacterInput, CCLayer) {
+    void keyDown(enumKeyCodes key) {
+        CCLayer::keyDown(key);
+        if (key == KEY_Enter) CCIMEDispatcher::sharedDispatcher()->dispatchInsertText("\n", 0, key);
+        //log::debug("{}({})", __FUNCTION__, (int)key);
+    }
+};

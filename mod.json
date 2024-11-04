@@ -1,5 +1,5 @@
 {
-	"geode": "3.8.1",
+	"geode": "3.9.0",
 	"gd": {
 		"win": "2.206",
 		"android": "2.206",
@@ -8,7 +8,7 @@
 	},
 	"id": "user95401.geode-mod-comments",
 	"name": "Mod Comments",
-	"version": "v1.1.2",
+	"version": "v1.2.0",
 	"developer": "user95401",
 	"description": "add comments in mod popups",
 	"tags": [ "online", "enhancement", "interface", "content", "developer" ],
