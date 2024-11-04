@@ -617,7 +617,14 @@ public:
                                         };
                                     }
                                 );
-                                Ref<LambdaNode> focus = LambdaNode::createToEndlessCalls(
+                                Ref<LambdaNode> focus = 
+#ifdef GEODE_IS_DESKTOP
+                                    LambdaNode::createToEndlessCalls
+#else
+                                    LambdaNode::createToCallOnce
+#endif // GEODE_IS_DESKTOP
+
+                                    (
                                     [comment_edit_input]() {
                                         if (comment_edit_input) {
                                             if (!comment_edit_input->getInputNode()->m_cursor->isVisible()) {
