@@ -619,7 +619,12 @@ public:
                                 );
                                 Ref<LambdaNode> focus = LambdaNode::createToEndlessCalls(
                                     [comment_edit_input]() {
-                                        comment_edit_input->focus();
+                                        if (comment_edit_input) {
+                                            if (!comment_edit_input->getInputNode()->m_cursor->isVisible()) {
+                                                comment_edit_input->focus();
+                                                //log::debug("focus");
+                                            }
+                                        }
                                     }, 0.1f
                                 );
                                 focus->setID("focus");
@@ -666,7 +671,8 @@ public:
                                             ntfy->show();
 
                                             auto body = json.try_get<std::string>("body").value_or(m_json["body"].as_string());
-                                            comment_edit_input->setString(CCLabelTTF::create(body.c_str(), "", 1)->getString(), 1);
+                                            auto safe_text = CCLabelBMFont::create(body.c_str(), "chatFont.fnt")->getString();
+                                            comment_edit_input->setString(safe_text, 1);
                                         }
                                     }
                                 );
