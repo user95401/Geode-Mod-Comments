@@ -617,7 +617,6 @@ public:
                                         };
                                     }
                                 );
-                                comment_edit_input->focus();
                                 Ref<LambdaNode> focusTest = LambdaNode::createToEndlessCalls(
                                     [comment_edit_input, item]() {
                                         if (comment_edit_input) {
@@ -640,7 +639,7 @@ public:
                             else {
                                 if (auto bg = this->getChildByIDRecursive("bg")) bg->stopActionByTag(76230);
                                 if (auto bg = this->getChildByIDRecursive("bg")) bg->runAction(CCFadeTo::create(0.5f, 75));
-                                this->removeChildByID("focusTest");
+                                this->removeChildByID("focus");
                                 comment_edit_input->defocus();
                                 Ref<LoadingCircle> loadinlr = LoadingCircle::create();
                                 loadinlr->setContentSize(this->getContentSize());
