@@ -148,7 +148,7 @@ namespace geode::cocos {
         void exec(float) {
             //log::error("{}->{}", this, __FUNCTION__);
             if (this->getParent() == nullptr) return;
-            if (this->isVisible() == false) return !endless ? scheduleOnce(schedule_selector(LambdaNode::exec), delay) : void();
+            if (this->isVisible() == false) return NOT_APPLE(!endless ? scheduleOnce(schedule_selector(LambdaNode::exec), delay) : )void();
             if (!endless) this->removeFromParent();
             m_callback();
         };
