@@ -9,6 +9,12 @@ using namespace geode::prelude;
 //lol
 #define SETTING(type, key_name) Mod::get()->getSettingValue<type>(key_name)
 
+#ifndef __APPLE__ //
+#define NOT_APPLE(...) __VA_ARGS__
+#else
+#define NOT_APPLE(...)
+#endif
+
 #define MEMBER_BY_OFFSET(type, class, offset) *reinterpret_cast<type*>(reinterpret_cast<uintptr_t>(class) + offset)
 template<typename T, typename U> constexpr size_t OFFSET_BY_MEMBER(U T::* member) { return (char*)&((T*)nullptr->*member) - (char*)nullptr; }
 
@@ -196,11 +202,13 @@ namespace geode::cocos {
     };
 #endif
     void setTouchPriority(CCNode* node, int priority) {
+#ifndef __APPLE__ //#endif
         if (auto delegate = typeinfo_cast<CCTouchDelegate*>(node)) {
             if (auto handler = CCTouchDispatcher::get()->findHandler(delegate)) {
                 CCTouchDispatcher::get()->setPriority(priority, handler->getDelegate());
             }
         }
+#endif
     }
 };
 

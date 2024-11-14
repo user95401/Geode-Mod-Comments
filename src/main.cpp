@@ -633,15 +633,15 @@ public:
                                 focusTest->setID("focusTest");
                                 this->addChild(focusTest);
                                 auto focusAnim = CCRepeatForever::create(CCSequence::create(
-                                    CCEaseSineInOut::create(CCFadeTo::create(1.f, 100)),
-                                    CCEaseSineInOut::create(CCFadeTo::create(1.f, 75)),
+                                    NOT_APPLE(CCEaseSineInOut::create)(CCFadeTo::create(1.f, 100)),
+                                    NOT_APPLE(CCEaseSineInOut::create)(CCFadeTo::create(1.f, 75)),
                                     nullptr
                                 ));
                                 focusAnim->setTag(76230);
-                                if (auto bg = this->getChildByIDRecursive("bg")) bg->runAction(focusAnim);
+                                NOT_APPLE(if (auto bg = this->getChildByIDRecursive("bg")) bg->runAction(focusAnim));
                             }
                             else {
-                                if (auto bg = this->getChildByIDRecursive("bg")) bg->stopActionByTag(76230);
+                                if (auto bg = this->getChildByIDRecursive("bg")) NOT_APPLE(bg->stopActionByTag(76230));
                                 if (auto bg = this->getChildByIDRecursive("bg")) bg->runAction(CCFadeTo::create(0.5f, 75));
                                 this->removeChildByID("focusTest");
                                 comment_edit_input->defocus();
@@ -1327,7 +1327,7 @@ $execute{ hi(); }
 class $modify(NewlineCharacterInput, CCLayer) {
     void keyDown(enumKeyCodes key) {
         CCLayer::keyDown(key);
-        if (key == KEY_Enter) CCIMEDispatcher::sharedDispatcher()->dispatchInsertText("\n", 0, key);
+        NOT_APPLE(if (key == KEY_Enter) CCIMEDispatcher::sharedDispatcher()->dispatchInsertText("\n", 0, key));
         //log::debug("{}({})", __FUNCTION__, (int)key);
     }
 };
