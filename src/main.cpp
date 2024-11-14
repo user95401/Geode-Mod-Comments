@@ -645,13 +645,14 @@ public:
                                 if (auto bg = this->getChildByIDRecursive("bg")) bg->runAction(CCFadeTo::create(0.5f, 75));
                                 this->removeChildByID("focusTest");
                                 comment_edit_input->defocus();
-                                Ref<LoadingCircle> loadinlr = LoadingCircle::create();
+                                Ref<CCLayer> loadinlr = CCLayer::create();
                                 loadinlr->setContentSize(this->getContentSize());
-                                loadinlr->m_sprite->setPosition({ 12.f, 12.f });
-                                loadinlr->m_sprite->setScale(0.25f);
-                                loadinlr->setParentLayer(this);
+                                auto loadinlr_sprite = geode::LoadingSpinner::create(50.0f);
+                                loadinlr->addChild(loadinlr_sprite);
+                                loadinlr_sprite->setPosition({ 12.f, 12.f });
+                                loadinlr_sprite->setScale(0.25f);
                                 loadinlr->addChild(this->getChildByID("bg"));
-                                loadinlr->show();
+                                this->addChild(loadinlr, 10);
                                 auto req = ghAccount::get_basic_web_request();
                                 auto listener = new EventListener<web::WebTask>;
                                 listener->bind(
@@ -736,13 +737,14 @@ public:
     }
     //IssueCommentItem
     void deleteComment(CCObject*) {
-        Ref<LoadingCircle> loadinlr = LoadingCircle::create();
+        Ref<CCLayer> loadinlr = CCLayer::create();
         loadinlr->setContentSize(this->getContentSize());
-        loadinlr->m_sprite->setPosition({ 12.f, 12.f });
-        loadinlr->m_sprite->setScale(0.25f);
-        loadinlr->setParentLayer(this);
+        auto loadinlr_sprite = geode::LoadingSpinner::create(50.0f);
+        loadinlr->addChild(loadinlr_sprite);
+        loadinlr_sprite->setPosition({ 12.f, 12.f });
+        loadinlr_sprite->setScale(0.25f);
         loadinlr->addChild(this->getChildByID("bg"));
-        loadinlr->show();
+        this->addChild(loadinlr, 10);
         auto a = [this, loadinlr](std::string const& rtn)
             {
                 if (loadinlr) loadinlr->removeFromParent();
@@ -1201,18 +1203,15 @@ void hi() {
                                 380.f, 
                                 [input, modID, sender, old_lis, old_sel](CCNode*, bool create) {
                                     if (not create) return;
-                                    Ref<LoadingCircle> loadinlr = LoadingCircle::create();
+                                    Ref<Notification> loadinlr = Notification::create("Loading...", NotificationIcon::Loading, 22.f);
                                     loadinlr->setID("loadinlr");
-                                    loadinlr->setFade(true);
                                     loadinlr->show();
-                                    loadinlr->setTouchEnabled(1);
-                                    handleTouchPriority(loadinlr);
                                     auto data = input->getString();
                                     auto body = matjson::parse("{\"body\": \"\"}").unwrapOrDefault();
                                     body["body"] = data;
                                     auto a = [sender, loadinlr](std::string const& rtn)
                                         {
-                                            if (loadinlr) loadinlr->fadeAndRemove();
+                                            if (loadinlr) loadinlr->hide();
                                             if (string::contains(rtn, "\"body\":")) {
                                                 sender->getParent()->setTag(0);//remove prev tab
                                                 sender->activate();//reopen tab
@@ -1228,7 +1227,7 @@ void hi() {
                                         };
                                     auto b = [loadinlr](std::string const& rtn)
                                         {
-                                            if (loadinlr) loadinlr->fadeAndRemove();
+                                            if (loadinlr) loadinlr->hide();
                                             auto message = rtn;
                                             auto asd = geode::createQuickPopup(
                                                 "Request exception",
