@@ -1,14 +1,14 @@
 {
-	"geode": "3.9.0",
+	"geode": "4.0.0-alpha.1",
 	"gd": {
-		"win": "2.206",
-		"android": "2.206",
-		"mac": "2.206",
-		"ios": "2.206"
+		"win": "2.2074",
+		"android": "2.2074",
+		"mac": "2.2074",
+		"ios": "2.2074"
 	},
 	"id": "user95401.geode-mod-comments",
 	"name": "Mod Comments",
-	"version": "v1.2.0",
+	"version": "v1.3.0",
 	"developer": "user95401",
 	"description": "add comments in mod popups",
 	"tags": [ "online", "enhancement", "interface", "content", "developer" ],
