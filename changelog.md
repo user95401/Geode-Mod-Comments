@@ -1,3 +1,6 @@
+# v1.3.0
+- migrate to geode sdk v4
+
 # v1.2.0
 - fix loggedin info
 - change auth warn popup

@@ -20,7 +20,7 @@ public:
                 if (web::WebResponse* res = e->getValue()) {
                     auto json = res->json();
                     auto string = res->string();
-                    if (json.value_or(matjson::Value()).contains("id")) user = json.value();
+                    if (json.unwrapOrDefault().contains("id")) user = json.unwrapOrDefault();
                     else if (SETTING(bool, "Auth Warn")) {
                         Ref<FLAlertLayer> warnPopup;
                         warnPopup = createQuickPopup(
@@ -130,7 +130,7 @@ public:
                     asd->show();
                     return;
                 }
-                ghAccount::set_token(catgirl["access_token"].as_string());
+                ghAccount::set_token(catgirl["access_token"].asString().unwrapOrDefault());
                 if (auto githubitem = typeinfo_cast<CCMenuItemSpriteExtra*>(
                     CCScene::get()->getChildByIDRecursive("githubitem"))) {
                     githubitem->setOpacity(ghAccount::has_token() ? 120 : 255);
@@ -159,9 +159,9 @@ public:
                     if (web::WebResponse* res = e->getValue()) {
                         std::string data = res->string().unwrapOr("");
                         //json
-                        std::string error;
-                        auto json_val = matjson::parse(data, error);
-                        if (error.size() > 0) return b("Error parsing JSON: " + error);
+                        auto json = matjson::parse(data);
+                        auto json_val = json.unwrapOrDefault();
+                        if (json.isErr()) return b("Error parsing JSON: " + json.unwrapErr().message);
                         //call the some stuff
                         if (res->code() < 399) a(json_val);
                         else b(data);
@@ -189,8 +189,8 @@ public:
             auto temp_stream = std::stringstream();
             temp_stream << "\n";
             temp_stream << "\n";
-            temp_stream << "Hi, " << ghAccount::user.try_get<std::string>("login").value_or("ERR");
-            temp_stream << "! [id:" << ghAccount::user.try_get<int>("id").value_or(-1) << "]";
+            temp_stream << "Hi, " << ghAccount::user["login"].asString().unwrapOr("ERR");
+            temp_stream << "! [id:" << ghAccount::user["id"].asInt().unwrapOr(-1) << "]";
             temp_stream << "\n";
             temp_stream << "Your access token was saved, login isn't needed!";
             temp_stream << "\n";
@@ -240,15 +240,15 @@ void notifyLoadLoop() {
                     if (web::WebResponse* res = e->getValue()) {
                         auto json = res->json();
                         auto string = res->string();
-                        if (json.has_value()) {
-                            auto value = json.value();
+                        if (json.isOk()) {
+                            auto value = json.unwrapOrDefault();
                             //log::debug("{}", value.dump());
                             //MDPopup::create("BCKPOICI DUPAK", "```\n" + value.dump() + "\n```", "NAH")->show();
                             if (string::contains(value.dump(), "\"last_read_at\"")) {
-                                auto notifications = value.as_array();
+                                auto notifications = value.asArray();
                                 auto NotificationNode = Notification::create(
                                     "New Comments [click me]",
-                                    getChildOfType<CCSprite>(createModLogo(getMod()), 0),
+                                    createModLogo(getMod())->getChildByType<CCSprite>(0),
                                     3.f
                                 );
                                 NotificationNode->show();
@@ -267,10 +267,10 @@ void notifyLoadLoop() {
                                         ));
 
                                         auto content = std::stringstream();
-                                        for (auto notification : notifications) {
+                                        for (auto notification : notifications.unwrap()) {
                                             if (notification.contains("subject")) {
                                                 auto subject = notification["subject"];
-                                                auto id = subject.try_get<std::string>("title").value_or("subject.title.err");
+                                                auto id = subject["title"].asString().unwrapOr("subject.title.err");
                                                 content << "- [" << id << "](mod:" << id << ")\n";
 
                                                 auto latest_comment_url = subject["latest_comment_url"].dump();
@@ -339,8 +339,8 @@ public:
         this->setContentWidth(parent->getContentWidth());
 
         auto comment_url = m_json["url"].dump();
-        auto comment_user_id = m_json["user"]["id"].as_int();
-        auto loggedinuser_id = ghAccount::user.try_get<int>("id").value_or(0);
+        auto comment_user_id = m_json["user"]["id"].asInt().unwrapOrDefault();
+        auto loggedinuser_id = ghAccount::user["id"].asInt().unwrapOr(0);
         auto is_owner = (comment_user_id == loggedinuser_id);
 
         auto padding = 8.f;
@@ -364,11 +364,11 @@ public:
                             if (web::WebResponse* res = e->getValue()) {
                                 sender->setEnabled(1);
                                 auto string = res->string();
-                                auto json = res->json().value_or(matjson::Value());
+                                auto json = res->json().unwrapOr(matjson::Value());
                                 if (res->code() < 399) {
                                     tab->select(!should_delete);
-                                    sender->setTag(json.try_get<int>("id").value_or(sender->getTag()));
-                                    auto count = numFromString<int>(tab->m_label->getString()).value_or(1);
+                                    sender->setTag(json["id"].asInt().unwrapOr(sender->getTag()));
+                                    auto count = numFromString<int>(tab->m_label->getString()).unwrapOr(1);
                                     if (should_delete) --count; else ++count;
                                     tab->m_label->setString(fmt::format("{}", count).data());
                                 }
@@ -378,7 +378,7 @@ public:
                             }
                         }
                     );
-                    auto url = reactions.try_get<std::string>("url").value_or("");
+                    auto url = reactions["url"].asString().unwrapOr("");
                     if (should_delete) {
                         listener->setFilter(req.send(
                             "DELETE", fmt::format("{}/{}", url, sender->getTag())
@@ -445,19 +445,19 @@ public:
                     if (web::WebResponse* res = e->getValue()) {
                         auto json = res->json();
                         auto string = res->string();
-                        if (res->code() < 399) if (json.has_value()) {
-                            auto val = json.value();
-                            if (val.is_array()) for (auto reaction : val.as_array()) {
-                                auto itsme = reaction["user"]["id"].as_int() == loggedinuser_id;
-                                auto name = reaction["content"].as_string();
+                        if (res->code() < 399) if (json.isOk()) {
+                            auto val = json.unwrapOrDefault();
+                            if (val.asArray().isOk()) for (auto reaction : val.asArray().unwrap()) {
+                                auto itsme = reaction["user"]["id"].asInt().unwrapOrDefault() == loggedinuser_id;
+                                auto name = reaction["content"].asString().unwrapOrDefault();
                                 auto item = typeinfo_cast<CCMenuItemSpriteExtra*>(react_row->getChildByID(name));
                                 auto tab = typeinfo_cast<GeodeTabSprite*>(item->getNormalImage());
                                 if (itsme) tab->select(itsme);
-                                item->setTag(reaction["id"].as_int());//for delete
+                                item->setTag(reaction["id"].asInt().unwrapOrDefault());//for delete
                             };
                             auto page = loading ? loading->getTag() : 1;
                             loading->setTag(page + 1);
-                            if (json.value().as_array().size() < 100) {
+                            if (json.unwrapOrDefault().asArray().unwrap().size() < 100) {
                                 //final
                                 loading->removeFromParent();
                                 react_row->setTouchEnabled(1);
@@ -473,7 +473,7 @@ public:
                     req.param("per_page", 100);
                     listener->bind(bindfn);
                     listener->setFilter(req.get(
-                        reactions.try_get<std::string>("url").value_or("")
+                        reactions["url"].asString().unwrapOr("")
                     ));
                 };
             load();
@@ -501,7 +501,7 @@ public:
                 avatar->setContentSize(avatar_size);
                 row->addChild(avatar);
                 //
-                auto filep = dirs::getTempDir() / ("." + m_json["user"]["login"].as_string());
+                auto filep = dirs::getTempDir() / ("." + m_json["user"]["login"].asString().unwrapOrDefault());
                 auto a = [this, sprite, filep, avatar](std::monostate const& asd) {
                     if (not sprite) return;
                     sprite->initWithFile(filep.string().c_str());
@@ -523,7 +523,7 @@ public:
                         }
                     }
                 );
-                listener->setFilter(req.send("GET", m_json["user"]["avatar_url"].as_string()));
+                listener->setFilter(req.send("GET", m_json["user"]["avatar_url"].asString().unwrapOrDefault()));
             }
             //text
             if (auto text = CCNode::create()) {
@@ -537,12 +537,12 @@ public:
                 text->setContentWidth(parent->getContentWidth() - avatar_size.width);
                 //menu user text
                 CCLabelBMFont* user;
-                Ref<MDTextArea> mdarea = MDTextArea::create(m_json["body"].as_string(), { text->getContentWidth(), 10 });
+                Ref<MDTextArea> mdarea = MDTextArea::create(m_json["body"].asString().unwrapOrDefault(), { text->getContentWidth(), 10 });
                 if (auto menu = CCMenu::create()) {
 
                     //user
                     user = CCLabelBMFont::create(
-                        fmt::format("{}", m_json["user"]["login"].as_string()).c_str(),
+                        fmt::format("{}", m_json["user"]["login"].asString().unwrapOrDefault()).c_str(),
                         "chatFont.fnt"
                     );
                     user->setScale(0.8f);
@@ -550,7 +550,7 @@ public:
                     menu->addChild(user);
 
                     //updated_at
-                    auto updated_at = m_json["updated_at"].as_string();
+                    auto updated_at = m_json["updated_at"].asString().unwrapOrDefault();
                     updated_at = string::replace(updated_at, "T", " ");
                     updated_at = string::replace(updated_at, "Z", "");
                     updated_at = string::replace(updated_at, "-", ".");
@@ -592,6 +592,9 @@ public:
                     auto comment_edit_input = TextInput::create(240.f, "...");
                     comment_edit_input->setString(mdarea->getString());
                     comment_edit_input->setPositionX(999.0f);
+                    comment_edit_input->getInputNode()->m_allowedChars = (
+                        " !\"#$ % &'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+                        );
                     this->addChild(comment_edit_input, 1);
                     auto comment_edit = CCMenuItemExt::createTogglerWithFilename(
                         "comment_upload.png"_spr, "comment_edit.png"_spr, 0.7f,
@@ -656,30 +659,30 @@ public:
                                         if (web::WebResponse* res = e->getValue()) {
                                             if (loadinlr) loadinlr->removeFromParent();
                                             std::string data = res->string().unwrapOr("");
-                                            auto json = res->json().value_or(m_json);
+                                            auto json = res->json().unwrapOr(m_json);
 
                                             auto ntfy = Notification::create(" ");
                                             if (res->code() < 399) ntfy->setString(
                                                 "comment was updated"
                                             );
                                             else if (json.contains("message")) ntfy->setString(
-                                                "" + json["message"].as_string()
+                                                "" + json["message"].asString().unwrapOrDefault()
                                             );
                                             else ntfy->setString(
-                                                "" + res->string().error_or(data)
+                                                "" + res->string().isErr() ? res->string().unwrapErr() : data
                                             );
                                             ntfy->show();
 
-                                            auto body = json.try_get<std::string>("body").value_or(m_json["body"].as_string());
+                                            auto body = json["body"].asString().unwrapOr(m_json["body"].asString().unwrapOrDefault());
                                             auto safe_text = CCLabelBMFont::create(body.c_str(), "chatFont.fnt")->getString();
                                             comment_edit_input->setString(safe_text, 1);
                                         }
                                     }
                                 );
-                                auto body = matjson::parse("{\"body\": \"\"}");
-                                body.try_set("body", comment_edit_input->getString());
+                                auto body = matjson::parse("{\"body\": \"\"}").unwrapOrDefault();
+                                body.set("body", comment_edit_input->getString());
                                 req.bodyJSON(body);
-                                listener->setFilter(req.send("PATCH", m_json["url"].as_string()));
+                                listener->setFilter(req.send("PATCH", m_json["url"].asString().unwrapOrDefault()));
                             }
                         }
                     );
@@ -780,21 +783,21 @@ public:
             [this, a, b](web::WebTask::Event* e) {
                 if (web::WebResponse* res = e->getValue()) {
                     std::string data = res->string().unwrapOr("");
-                    auto json = res->json().value_or(matjson::Value());
-                    if (json.contains("message")) data = json["message"].as_string();
-                    if (json["errors"].is_array()) for (auto err : json["errors"].as_array()) data += ", " + err["message"].as_string();
+                    auto json = res->json().unwrapOr(matjson::Value());
+                    if (json.contains("message")) data = json["message"].asString().unwrapOrDefault();
+                    if (json["errors"].isArray()) for (auto err : json["errors"].asArray().unwrap()) data += ", " + err["message"].asString().unwrapOrDefault();
                     //call the some stuff
                     if (res->code() < 399) a(data);
                     else b(data);
                 }
             }
         );
-        listener->setFilter(req.send("DELETE", m_json["url"].as_string()));
+        listener->setFilter(req.send("DELETE", m_json["url"].asString().unwrapOrDefault()));
     }
     void onAvatar(CCObject*) {
         if (not m_json.contains("user")) return;
         if (not m_json["user"].contains("html_url")) return;
-        else web::openLinkInBrowser(m_json["user"]["html_url"].as_string());
+        else web::openLinkInBrowser(m_json["user"]["html_url"].asString().unwrapOrDefault());
     }
 };
 
@@ -836,7 +839,7 @@ public:
             header->setAnchorPoint({0.5f, 0.f});
             startLayer->addChildAtPosition(header, Anchor::Bottom, { 0.f, 28.f });
             auto startedby = CCLabelBMFont::create(fmt::format(
-                "Started by {}.", mod_issues[modID]["user"].try_get<std::string>("login").value_or("broken user lol")
+                "Started by {}.", mod_issues[modID]["user"]["login"].asString().unwrapOr("broken user lol")
             ).c_str(), "chatFont.fnt");
             startedby->setOpacity(190);
             startedby->setScale(0.7);
@@ -851,7 +854,7 @@ public:
         );
         contentLayer->addChild(startLayer);
 
-        if (mod_comments[modID].is_array()) for (auto comment : mod_comments[modID].as_array()) {
+        if (mod_comments[modID].isArray()) for (auto comment : mod_comments[modID].asArray().unwrap()) {
 
             auto item = IssueCommentItem::create(contentLayer, comment);
             
@@ -913,8 +916,7 @@ public:
         label->setWidth(me->getContentSize().width - 32.f);
         me->addChildAtPosition(label, Anchor::Top, {0.f, -72.f});
 
-        auto circle = LoadingCircleSprite::create();
-        circle->setScale(0.6f);
+        auto circle = geode::LoadingSpinner::create(50.0f);
         me->addChildAtPosition(circle, Anchor::Top, {0.f, -44.f});
 
         me->m_webTaskListener.bind(
@@ -922,17 +924,17 @@ public:
                 if (web::WebResponse* res = e->getValue()) {
                     auto json = res->json();
                     auto string = res->string();
-                    if (json.has_value()) {
-                        if (mod_comments[modID].is_array()) {
-                            for (auto comment : json.value().as_array()) {
-                                mod_comments[modID].as_array().push_back(comment);
+                    if (json.isOk()) {
+                        if (mod_comments[modID].isArray()) {
+                            for (auto comment : json.unwrap().asArray().unwrap()) {
+                                mod_comments[modID].asArray().unwrap().push_back(comment);
                             }
                         }
                         else {
-                            mod_comments[modID] = json.value();
+                            mod_comments[modID] = json.unwrap();
                         }
                         me->removeFromParent();
-                        if (json.value().as_array().size() < 100) {
+                        if (json.unwrap().asArray().unwrap().size() < 100) {
                             if (contentLayer) CommentsLayer::create(contentLayer, modID);
                         }
                         else LoadCommentsLayer::create(contentLayer, modID, (page + 1));
@@ -940,7 +942,7 @@ public:
                     else if (label) label->setString(fmt::format(
                         "{}\n{}",
                         label->getString(),
-                        json.error_or("no err, str: " + string.value_or("no str"))
+                        json.isErr() ? json.unwrapErr() : ("no err, str: " + string.unwrapOr("no str"))
                     ).c_str());
                 }
                 else if (e->isCancelled()) if (label) label->setString(fmt::format(
@@ -954,7 +956,7 @@ public:
         req.param("page", page);
         req.param("per_page", 100);
         me->m_webTaskListener.setFilter(req.get(
-            mod_issues[modID].try_get<std::string>("comments_url").value_or("")
+            mod_issues[modID]["comments_url"].asString().unwrapOr("")
         ));
 
         return me;
@@ -999,8 +1001,7 @@ public:
         label->setWidth(me->getContentSize().width - 32.f);
         me->addChildAtPosition(label, Anchor::Top, {0.f, -72.f});
 
-        auto circle = LoadingCircleSprite::create();
-        circle->setScale(0.6f);
+        auto circle = geode::LoadingSpinner::create(50.0f);
         me->addChildAtPosition(circle, Anchor::Top, {0.f, -44.f});
 
         me->m_webTaskListener.bind(
@@ -1008,12 +1009,12 @@ public:
                 if (web::WebResponse* res = e->getValue()) {
                     auto json = res->json();
                     auto string = res->string();
-                    if (json.has_value()) {
-                        issues = json.value();
+                    if (json.isOk()) {
+                        issues = json.unwrapOrDefault();
 
                         if (createNew) mod_issues[modID] = issues;
-                        else if (issues.is_array()) for (auto issue : issues.as_array()) {
-                            auto title = issue.try_get<std::string>("title").value_or("NO_TITLE");
+                        else if (issues.isArray()) for (auto issue : issues.asArray().unwrap()) {
+                            auto title = issue["title"].asString().unwrapOr("NO_TITLE");
                             if (title == modID) {
                                 mod_issues[modID] = issue;
                                 break;
@@ -1050,7 +1051,7 @@ public:
                     else if (label) label->setString(fmt::format(
                         "{}\n{}",
                         label->getString(),
-                        json.error_or("no err, str: " + string.value_or("no str"))
+                        json.isErr() ? json.unwrapErr() : ("no err, str: " + string.unwrapOr("no str"))
                     ).c_str());
                 }
                 else if (e->isCancelled()) if (label) label->setString(fmt::format(
@@ -1207,7 +1208,7 @@ void hi() {
                                     loadinlr->setTouchEnabled(1);
                                     handleTouchPriority(loadinlr);
                                     auto data = input->getString();
-                                    auto body = matjson::parse("{\"body\": \"\"}");
+                                    auto body = matjson::parse("{\"body\": \"\"}").unwrapOrDefault();
                                     body["body"] = data;
                                     auto a = [sender, loadinlr](std::string const& rtn)
                                         {
@@ -1242,9 +1243,9 @@ void hi() {
                                         [a, b](web::WebTask::Event* e) {
                                             if (web::WebResponse* res = e->getValue()) {
                                                 std::string data = res->string().unwrapOr("");
-                                                auto json = res->json().value_or(matjson::Value());
-                                                if (json.contains("message")) data = json["message"].as_string();
-                                                if (json["errors"].is_array()) for (auto err : json["errors"].as_array()) data += ", " + err["message"].as_string();
+                                                auto json = res->json().unwrapOr(matjson::Value());
+                                                if (json.contains("message")) data = json["message"].asString().unwrapOrDefault();
+                                                if (json["errors"].isArray()) for (auto err : json["errors"].asArray().unwrap()) data += ", " + err["message"].asString().unwrapOrDefault();
                                                 //call the some stuff
                                                 if (res->code() < 399) a(data);
                                                 else b(data);
@@ -1252,7 +1253,7 @@ void hi() {
                                         }
                                     );
                                     req.bodyJSON(body);
-                                    listener->setFilter(req.send("POST", mod_issues[modID]["comments_url"].as_string()));
+                                    listener->setFilter(req.send("POST", mod_issues[modID]["comments_url"].asString().unwrapOrDefault()));
                                 }
                             );
 
