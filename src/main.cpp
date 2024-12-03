@@ -84,7 +84,7 @@ public:
         //info"Continue"
         if (p0->getID() == "info" and p1) {
             //open auth apps idk
-            web::openLinkInBrowser("http://user95401.zya.me/geode-mod-comments/auth");
+            web::openLinkInBrowser("https://user95401.github.io/Geode-Mod-Comments/auth.html");
             //finish pop
             auto pop = FLAlertLayer::create(
                 protocol,
@@ -246,7 +246,7 @@ void notifyLoadLoop() {
                             //log::debug("{}", value.dump());
                             //MDPopup::create("BCKPOICI DUPAK", "```\n" + value.dump() + "\n```", "NAH")->show();
                             if (string::contains(value.dump(), "\"last_read_at\"")) {
-                                auto notifications = value.asArray();
+                                auto notifications = value;
                                 auto NotificationNode = Notification::create(
                                     "New Comments [click me]",
                                     createModLogo(getMod())->getChildByType<CCSprite>(0),
@@ -255,20 +255,9 @@ void notifyLoadLoop() {
                                 NotificationNode->show();
                                 auto touchZone = CCMenuItemExt::create(
                                     [notifications](auto) {
-                                        auto listener = (new EventListener<web::WebTask>);
-                                        listener->bind(
-                                            [](web::WebTask::Event* e) {
-                                                if (web::WebResponse* res = e->getValue()) {
-                                                    //log::debug("{}", res->code());
-                                                }
-                                            }
-                                        );
-                                        listener->setFilter(ghAccount::get_basic_web_request().send(
-                                            "PUT", ghAccount::api_repo_url + "/notifications"
-                                        ));
 
                                         auto content = std::stringstream();
-                                        for (auto notification : notifications.unwrap()) {
+                                        for (auto notification : notifications) {
                                             if (notification.contains("subject")) {
                                                 auto subject = notification["subject"];
                                                 auto id = subject["title"].asString().unwrapOr("subject.title.err");
@@ -278,7 +267,23 @@ void notifyLoadLoop() {
                                                 new_comments[latest_comment_url] = 0;
                                             }
                                         }
-                                        MDPopup::create("New comments:", content.str(), "OK")->show();
+
+                                        MDPopup::create("New Activity:", content.str(), "Close", "Mark as read",
+                                            [](bool btn2) {
+                                                if (!btn2) return;
+                                                auto listener = (new EventListener<web::WebTask>);
+                                                listener->bind(
+                                                    [](web::WebTask::Event* e) {
+                                                        if (web::WebResponse* res = e->getValue()) {
+                                                            //log::debug("{}", res->code());
+                                                        }
+                                                    }
+                                                );
+                                                listener->setFilter(ghAccount::get_basic_web_request().send(
+                                                    "PUT", ghAccount::api_repo_url + "/notifications"
+                                                ));
+                                            }
+                                        )->show();
 
                                     }
                                 );
@@ -869,6 +874,7 @@ public:
 
             contentLayer->addChild(item);
         }
+
         //fix some stuff goes when content smaller than scroll
         if (contentLayer->getContentSize().height < scroll->getContentSize().height) {
             contentLayer->setContentSize({
@@ -1096,6 +1102,17 @@ void hi() {
             if (popup = typeinfo_cast<FLAlertLayer*>(event->getPopup())) void();
             else return ListenerResult::Propagate;
 
+            //shit for exactly my mod (cancelled lol)
+            if (event->getModID() == getMod()->getID()) {
+                if (auto description = popup->getChildByIDRecursive("description-container"); description != nullptr) {
+                    findFirstChildRecursive<GenericContentLayer>(
+                        description, [](GenericContentLayer* layer) {
+                            return true;
+                        }
+                    );
+                }
+            }
+
             //fix tabs menu
             CCNode* tabsMenu = nullptr;
             if (tabsMenu = popup->getChildByIDRecursive("tabs-menu")) {
@@ -1103,7 +1120,7 @@ void hi() {
                 mark->setID("pointAndSizeFixMark");
                 if (tabsMenu->getChildByID(mark->getID())) void();
                 else {
-                    tabsMenu->addChild(mark);
+                    tabsMenu->addChild(mark, 1337, 1337);
                     tabsMenu->setAnchorPoint({ 0.f, 1.f });
                     tabsMenu->setPositionX(0.f);
                     tabsMenu->setContentWidth(tabsMenu->getContentWidth() - 21.f);

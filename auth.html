@@ -1,0 +1,74 @@
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style type="text/css">
+    body {
+        margin: 8 12 28;
+    }
+
+    code {
+        white-space: pre-line;
+    }
+
+    html {
+        overflow-wrap: anywhere;
+        zoom: 1.8;
+        color-scheme: dark;
+        background-image: radial-gradient(at top, #575757, black);
+        font-family: arial;
+        text-align: center;
+        color-scheme: dark;
+    }
+
+    button:not([class]), textarea:not([class]), input:not([class]), a:not([class]) {
+        border-radius: 0;
+        margin: 0.2rem 0.0rem;
+        width: 100%;
+        zoom: 1.2;
+        resize: vertical;
+    }
+</style>
+<title>Auth</title>
+
+<body style="
+    display: flex;
+    align-items: center;
+    justify-content: center;
+">
+    <div>
+        <h3 style="user-select: none;">Copy the code below and paste it to input filed in game</h3>
+        <h2 id="code-display" style="
+        filter: drop-shadow(4px 4px 2px black);
+        border: lightgray;
+        border-style: dotted;
+        padding: 6px;
+        user-select: all;
+        cursor: pointer;
+        font-size: 100%;
+    "></h2>
+    </div>
+
+    <script type="text/javascript">
+
+        function getParameterByName(name) {
+            name = name.replace(/[$$]/g, "\\$&");
+            var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+            results = regex.exec(window.location.href);
+            if (!results) return null;
+            if (!results[2]) return '';
+            return decodeURIComponent(results[2].replace(/\+/g, " "));
+        }
+
+        var code = getParameterByName('code');
+
+        if (code) {
+            document.getElementById('code-display').innerText = code;
+        } 
+        else {
+
+            var client_id = "Ov23lisVe58mXL4UNOsE";
+            var redirect_url = "https://github.com/login/oauth/authorize?client_id=" + client_id + "&scope=public_repo,notifications";
+            window.location.href = redirect_url;
+        }
+
+    </script>
