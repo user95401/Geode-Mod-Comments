@@ -1,5 +1,4 @@
 #include <_main.hpp>
-#include <_updater.hpp>
 #include <Geode/utils/web.hpp>
 #include <GeodeUI.hpp>
 
@@ -28,9 +27,9 @@ public:
                             "Account Authorization",
                             "You got that message\n"
                             "from <cy>Geode Mod Comments</c> modification.\n"
-                            "You should <cg>authorizate your github account</c> \n"
+                            "You should <cg>authorize your GitHub account</c> \n"
                             "if you want <cb>to use this mod</c>...",
-                            "Die", "Authorization",
+                            "Later", "Ok",
                             [warnPopup](CCNode* p0, bool p1) {
                                 SceneManager::get()->forget(p0);
                                 p0->removeFromParent();
@@ -321,10 +320,17 @@ void notifyLoadLoop() {
 #endif
 }
 
-$on_mod(Loaded){ 
-    ghAccount::try_load_user();
-    notifyLoadLoop();
-}
+#include <Geode/modify/MenuLayer.hpp>
+class $modify(InitalWebStuffLoader, MenuLayer) {
+    inline static bool g_firstLoad = false;
+    virtual bool init() {
+        if (g_firstLoad) return MenuLayer::init();
+        ghAccount::try_load_user();
+        notifyLoadLoop();
+        g_firstLoad = true;
+        return MenuLayer::init();
+    }
+};
 
 inline auto issues = matjson::Value();
 inline std::map<std::string, matjson::Value> mod_issues;
@@ -1194,8 +1200,8 @@ void hi() {
                             input->hideBG();
                             input->setContentHeight(md_prev->getContentHeight() * 2);
                             input->getInputNode()->setContentHeight(md_prev->getContentHeight() * 2);
-                            input->getInputNode()->m_placeholderLabel->setOpacity(0);
-                            input->getInputNode()->m_cursor->setOpacity(0);
+                            //input->getInputNode()->m_placeholderLabel->setOpacity(0);
+                            //input->getInputNode()->m_cursor->setOpacity(0);
                             input->getInputNode()->m_filterSwearWords = (0);
                             input->getInputNode()->m_allowedChars = (
                                 " !\"#$ % &'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
@@ -1276,6 +1282,25 @@ void hi() {
 
                             pop->m_buttonMenu->addChild(md_prev, 1);
                             pop->m_buttonMenu->addChild(input);
+
+                            pop->m_buttonMenu->addChild(CCMenuItemExt::createSpriteExtraWithFrameName(
+                                "hideBtn_001.png", 0.8f, [input](CCNode*){
+                                    input->focus();
+                                    input->getInputNode()->m_placeholderLabel->setOpacity(input->getInputNode()->m_placeholderLabel->getOpacity() == 0 ? 255 : 0);
+                                    input->getInputNode()->m_cursor->setOpacity(input->getInputNode()->m_cursor->getOpacity() == 0 ? 255 : 0);
+                                }
+                            ), 1, 68290);
+                            pop->m_buttonMenu->getChildByTag(68290)->setPosition(CCPointMake(160.f, 132.f));
+
+                            pop->m_buttonMenu->addChild(CCMenuItemExt::createSpriteExtraWithFrameName(
+                                "break.png"_spr, 0.8f, [input](CCNode*){
+                                    input->focus();
+                                    CCIMEDispatcher::sharedDispatcher()->dispatchInsertText("\\", 1, KEY_None);
+                                    CCIMEDispatcher::sharedDispatcher()->dispatchInsertText("n", 1, KEY_None);
+                                }
+                            ), 1, 367354);
+                            pop->m_buttonMenu->getChildByTag(367354)->setPosition(CCPointMake(160.f, 112.f));
+
                             handleTouchPriority(pop);
                         }
                         else {
@@ -1338,14 +1363,4 @@ void hi() {
         }
     );
 }
-
-$execute{ hi(); }
-
-#include <Geode/modify/CCLayer.hpp>
-class $modify(NewlineCharacterInput, CCLayer) {
-    void keyDown(enumKeyCodes key) {
-        CCLayer::keyDown(key);
-        NOT_APPLE(if (key == KEY_Enter) CCIMEDispatcher::sharedDispatcher()->dispatchInsertText("\n", 0, key));
-        //log::debug("{}({})", __FUNCTION__, (int)key);
-    }
-};
+$execute{ hi(); } //intellisense goes insane in $execute block
