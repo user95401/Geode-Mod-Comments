@@ -24,6 +24,10 @@ jobs:
         - name: macOS
           os: macos-latest
 
+        - name: iOS
+          os: macos-latest
+          target: iOS
+
         - name: Android64
           os: ubuntu-latest
           target: Android64
@@ -34,14 +38,15 @@ jobs:
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
+
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          target: ${{ matrix.config.target }}
           combine: true
+          target: ${{ matrix.config.target }}
 
   upload:
     name: Combine and upload builds
@@ -60,7 +65,7 @@ jobs:
           path: ${{ steps.build.outputs.build-output }}
 
       - name: "Set up Git repository"
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: "Development Release"
         uses: ncipollo/release-action@v1
