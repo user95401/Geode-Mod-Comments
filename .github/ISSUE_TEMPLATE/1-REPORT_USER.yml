@@ -1,0 +1,28 @@
+name: "Report User"
+description: "Make bad user getting banned!"
+
+labels: "report"
+title: "Report User"
+
+body:
+    
+    - type: markdown
+      attributes:
+          value: |
+               Hi @user95401, here is a user that break rules!
+          
+    - type: input
+      attributes:
+          label: "Username or Link (link pls)"
+      validations:
+        required: true
+          
+    - type: input
+      attributes:
+        label: "Crime Scene (mod id or issue number for example)"
+      validations:
+        required: true
+          
+    - type: textarea
+      attributes:
+        label: "More..."

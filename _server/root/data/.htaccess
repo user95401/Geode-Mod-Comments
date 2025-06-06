@@ -1,0 +1,9 @@
+
+Options -Indexes
+ServerSignature Off
+
+Require all denied
+
+Options -ExecCGI -Includes
+php_flag engine off
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .phps .cgi .pl .asp .aspx
