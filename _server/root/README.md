@@ -22,11 +22,11 @@ All write operations require token for [Argon](https://github.com/globedgd/argon
 
 ### Endpoints
 
-#### GET [`/`](/)
+#### GET [`/`](https://geode-comments.bccst.ru/)
 - **Description**: Returns this documentation
 - **Response**: HTML documentation page
 
-#### GET [`/?get={modID}`](/?get={modID})
+#### GET [`/?get={modID}`](https://geode-comments.bccst.ru/?get={modID})
 - **Description**: Retrieves all comments for a specific mod
 - **Parameters**:
   - `modID`: The ID of the mod to fetch comments for
@@ -44,7 +44,7 @@ All write operations require token for [Argon](https://github.com/globedgd/argon
   ]
   ```
 
-#### POST [`/?post={modID}`](/?post={modID})
+#### POST [`/?post={modID}`](https://geode-comments.bccst.ru/?post={modID})
 - **Description**: Posts a new comment for a mod
 - **Required POST parameters**:
   - `account_id`: GD Account ID (integer)
@@ -58,7 +58,7 @@ All write operations require token for [Argon](https://github.com/globedgd/argon
   - "Mismatched username, please refresh login in account settings"
   - "Invalid body"
 
-#### POST [`/?update={modID}`](/?update={modID})
+#### POST [`/?update={modID}`](https://geode-comments.bccst.ru/?update={modID})
 - **Description**: Updates an existing comment
 - **Required POST parameters**:
   - `account_id`: GD Account ID (integer)
@@ -73,7 +73,7 @@ All write operations require token for [Argon](https://github.com/globedgd/argon
   - "Not your comment"
   - "Invalid body"
 
-#### POST [`/?delete={modID}`](/?delete={modID})
+#### POST [`/?delete={modID}`](https://geode-comments.bccst.ru/?delete={modID})
 - **Description**: Deletes a comment
 - **Required POST parameters**:
   - `account_id`: GD Account ID (integer)
