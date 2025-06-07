@@ -1,51 +1,122 @@
 # Geode Mod Comments Server
 
-The server for Mod Comments geode modification.
+A server for the [Mod Comments](https://github.com/user95401/Geode-Mod-Comments) Geode modification, providing ability to comment the Geometry Dash mods.
 
-Built for PHP7 Apache server.
+## Features
 
-Uses [Argon](https://argon.globed.dev) for authentication.
+- User authentication via [Argon](https://github.com/globedgd/argon)
+- CRUD operations for comments
+- Auth tests rate limiting (valid tokens saved for 12 hours)
+- JSON files based data storage
 
-## API
+## Requirements
 
-### GET /?get={id}
+- PHP7
+- Apache web server
+- Internet access for [Argon](https://github.com/globedgd/argon) authentication
 
-Returns comments for the specified mod ID.
+## API Documentation
 
-### POST /?post={id}
+### Authentication
+All write operations require token for [Argon](https://github.com/globedgd/argon). Validated tokens are cached locally for 12 hours.
 
-Posts a new comment for the specified mod ID.
-- `account_id`: The ID of the GD Account.
-- `user_id`: The user ID of the GD Account.
-- `username`: The username of the GD Account.
-- `token`: The Argon authentication token.
-- `body`: The body of the comment.
+### Endpoints
 
-### POST /?update={id}
+#### GET [`/`](/)
+- **Description**: Returns this documentation
+- **Response**: HTML documentation page
 
-Updates an existing comment for the specified mod ID.
-- `account_id`: The ID of the GD Account.
-- `user_id`: The user ID of the GD Account.
-- `username`: The username of the GD Account.
-- `token`: The Argon authentication token.
-- `comment_id`: The ID of the comment to update.
-- `body`: The new body of the comment.
+#### GET [`/?get={modID}`](/?get={modID})
+- **Description**: Retrieves all comments for a specific mod
+- **Parameters**:
+  - `modID`: The ID of the mod to fetch comments for
+- **Response**: JSON array of comment objects
+- **Example**:
+  ```json
+  [
+    {
+      "id": 1234567890,
+      "user": "Player1",
+      "body": "Great mod!",
+      "accountID": 12345,
+      "userID": 67890
+    }
+  ]
+  ```
 
-### POST /?delete={id}
+#### POST [`/?post={modID}`](/?post={modID})
+- **Description**: Posts a new comment for a mod
+- **Required POST parameters**:
+  - `account_id`: GD Account ID (integer)
+  - `user_id`: GD User ID (integer)
+  - `username`: GD Username (string)
+  - `token`: Argon authentication token (string)
+  - `body`: Comment content (string, 1-500 characters)
+- **Success response**: "Comment posted"
+- **Error responses**:
+  - "Invalid token: [reason]"
+  - "Mismatched username, please refresh login in account settings"
+  - "Invalid body"
 
-Deletes a comment for the specified mod ID.
-- `account_id`: The ID of the GD Account.
-- `user_id`: The user ID of the GD Account.
-- `username`: The username of the GD Account.
-- `token`: The Argon authentication token.
-- `comment_id`: The ID of the comment to delete.
+#### POST [`/?update={modID}`](/?update={modID})
+- **Description**: Updates an existing comment
+- **Required POST parameters**:
+  - `account_id`: GD Account ID (integer)
+  - `user_id`: GD User ID (integer)
+  - `username`: GD Username (string)
+  - `token`: Argon authentication token (string)
+  - `comment_id`: ID of comment to update (integer)
+  - `body`: New comment content (string, 1-500 characters)
+- **Success response**: "Updated"
+- **Error responses**:
+  - "Not found"
+  - "Not your comment"
+  - "Invalid body"
 
-### POST /?delete={id}
+#### POST [`/?delete={modID}`](/?delete={modID})
+- **Description**: Deletes a comment
+- **Required POST parameters**:
+  - `account_id`: GD Account ID (integer)
+  - `user_id`: GD User ID (integer)
+  - `username`: GD Username (string)
+  - `token`: Argon authentication token (string)
+  - `comment_id`: ID of comment to delete (integer)
+- **Success response**: "Deleted"
+- **Error responses**:
+  - "Not found"
+  - "Not your comment"
 
-Deletes a comment for the specified mod ID.
-- `account_id`: The ID of the GD Account.
-- `user_id`: The user ID of the GD Account.
-- `username`: The username of the GD Account.
-- `token`: The Argon authentication token.
-- `comment_id`: The ID of the comment to delete.
+## Data Structure
 
+Comments are stored in the following structure:
+```
+data/
+    tokens.json             # Cached authentication tokens
+    comments/               # Comments threads as mod ID's
+        {modID}/            # One directory per mod
+            {timestamp}     # Individual comment files named by timestamp
+```
+
+## Security
+
+- All user input is sanitized
+- Authentication tokens are validated through Argon
+- Local token cache expires after 12 hours
+- Comment bodies are limited to 500 characters
+- Mod IDs are sanitized to prevent directory traversal
+
+## Limitations (TO DO...)
+
+- No pagination for comment retrieval
+- No user blocking/reporting system
+
+## Deployment
+
+1. Clone this repository to your web server
+2. Ensure the `data/` directory is writable by the web server
+3. Configure Apache to serve the `index.php` file
+4. Verify Argon API connectivity
+
+## Dependencies
+
+- [Argon Server](https://argon.globed.dev)

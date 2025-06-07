@@ -202,4 +202,17 @@ if (isset($_GET['delete'])) {
     exit("Deleted");
 }
 
+//no user agent
+if (!isset($_SERVER['HTTP_USER_AGENT'])) exit();
+echo file_get_contents("https://github.com/user95401/Geode-Mod-Comments/blob/master/_server/root/README.md");
 ?>
+<style>
+	section {
+		position: absolute;
+		top: 0;
+		left: 0;
+		margin: 0 !important;
+		z-index: 999999;
+		width: 100%;
+    }
+</style>
