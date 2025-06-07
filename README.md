@@ -9,7 +9,6 @@ This mod adds a **comment section** to mod popups in Geode Loader UI, allowing u
 - **Multiline input**
 - **Keyboard shortcuts** for quick navigation (F5 to refresh, Enter to send, Shift to fast delete, etc.).  
 
-**Note:** Requires a **GD account** for posting. 
-Your GJP2 (password, salted with "mI29fmAnxgTs" and hashed with SHA-1) being used (but not stored) on my server to verify actions with comments.
+**Note:** Requires a **GD account**. (Uses [Argon](https://github.com/globedgd/argon) for authenticating)
 
 *This is open v2 beta. I would be happy to any feedback.*</c>

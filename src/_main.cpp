@@ -2,18 +2,24 @@
 #include <Geode/utils/web.hpp>
 #include <GeodeUI.hpp>
 
+#include <argon/argon.hpp>
+
 using namespace geode::prelude;
 
 #include <StupidAsfMultilineMDTextEditor.hpp>
 
 #define API (getMod()->getSettingValue<std::string>("API"))
-#define GJACCOUNT_LOGIN (getMod()->getSettingValue<std::string>("GJACCOUNT_LOGIN"))
 
-inline static auto ACCOUNT = matjson::Value();
+#define ARGON_ALLOWED (getMod()->getSettingValue<bool>("ARGON_ALLOWED"))
+#define ARGON_ALLOW(setup) getMod()->setSettingValue<bool>("ARGON_ALLOWED", setup)
+
+inline static auto ARGON_TOKEN = std::string();
 
 class CommentsLayer : public CCLayer {
 public:
     EventListener<web::WebTask> m_webTaskListener;
+    std::string m_id;
+    CCSize m_size;
     virtual void keyDown(enumKeyCodes key) override {
         CCLayer::keyDown(key);
 
@@ -46,13 +52,21 @@ public:
     }
 	static CommentsLayer* create(std::string id, CCSize size) {
         auto ret = new CommentsLayer;
-        if (ret->init(id, size)) {
+		ret->m_id = id;
+		ret->m_size = size;
+        if (ret->init()) {
             ret->autorelease();
             return ret;
         }
         delete ret;
         return nullptr;
 	}
+    void recreateMe() {
+        this->getParent()->addChild(
+            CommentsLayer::create(m_id, m_size)
+        );
+        this->removeFromParent();
+    }
     void setupComments(matjson::Value comments) {
 
         auto commentsScroll = typeinfo_cast<ScrollLayer*>(this->getChildByIDRecursive("commentsScroll"_spr));
@@ -172,9 +186,10 @@ public:
                     req.bodyMultipart(web::MultipartForm()
                         .param("delete", __this->getID())
                         .param("comment_id", container->getTag())
-                        .param("userName", GJAccountManager::get()->m_username.c_str())
-                        .param("gjp2", GJAccountManager::get()->m_GJP2.c_str())
-                        .param("login_link", GJACCOUNT_LOGIN)
+                        .param("account_id", argon::getGameAccountData().accountId)
+                        .param("user_id", argon::getGameAccountData().userId)
+                        .param("username", argon::getGameAccountData().username)
+                        .param("token", ARGON_TOKEN)
                     );
                     __this->m_webTaskListener.setFilter(req.post(API + std::string("?delete")));
 
@@ -182,7 +197,7 @@ public:
             );
             deleteBtn->setID("delete-comment"_spr);
             deleteBtn->setAnchorPoint(CCPointMake(1.f, 0.5f));
-            deleteBtn->setVisible(accountID == ACCOUNT["accountID"].asString().unwrapOr("-1"));
+            deleteBtn->setVisible(accountID == numToString(argon::getGameAccountData().accountId));
             container->addChildAtPosition(deleteBtn, Anchor::TopRight, { -4.f, -8.f });
 
             auto editBtnLabel = CCLabelBMFont::create("[EDIT]", "chatFont.fnt");
@@ -226,7 +241,7 @@ public:
             );
             editBtn->setID("edit-comment"_spr);
             editBtn->setAnchorPoint(CCPointMake(1.f, 0.5f));
-            editBtn->setVisible(accountID == ACCOUNT["accountID"].asString().unwrapOr("-1"));
+            editBtn->setVisible(accountID == numToString(argon::getGameAccountData().accountId));
             container->addChildAtPosition(editBtn, Anchor::TopRight, { -4.f, -20.f });
 
             container->updateLayout();
@@ -265,13 +280,143 @@ public:
         m_webTaskListener.setFilter(req.get(API));
 
     }
-    bool init(std::string id, CCSize size) {
+    bool auth() {
+
+        if (!getMod()->getSavedValue<bool>("ASKED_FOR_USING_ARGON", false)) {
+            getMod()->setSavedValue("ASKED_FOR_USING_ARGON", true);
+            auto qWindow = createQuickPopup(
+                "Authentication",
+                "Mod Comments will use Argon by Globed for authentication with your GD Account.\n\nDo you allow it?",
+                "No", "Yes",
+                [__this = Ref(this)](CCNode*, bool allow) {
+                    if (allow) {
+                        ARGON_ALLOW(true);
+                        __this->auth();
+                    }
+                    else {
+                        ARGON_ALLOW(false);
+                        if (__this) __this->recreateMe();
+                    }
+                }
+                , false //dnt show
+            );
+            limitNodeSize(qWindow, this->getContentSize(), 800.f, .1f);
+            qWindow->setOpacity(0);
+            qWindow->setAnchorPoint(CCPointMake(.0f, .5f));
+            qWindow->m_mainLayer->runAction(CCEaseElasticOut::create(CCScaleTo::create(.5f, 1.45f), 1.f));
+            qWindow->m_mainLayer->setScale(0.f);
+            qWindow->m_noElasticity = true;
+            qWindow->m_scene = this;
+            qWindow->show();
+			return true;
+		}
+
+        if (!ARGON_ALLOWED) {
+            argon::clearToken();
+            ARGON_TOKEN = "";
+            return false;
+        }
+        if (ARGON_TOKEN.size() > 3) return false;
+
+        argon::clearToken();
+
+        this->removeChildByID("statusLabel"_spr); //remove prev status label
+        auto statusLabel = CCLabelBMFont::create("Authenticating...", "chatFont.fnt");
+        statusLabel->setID("statusLabel"_spr);
+        statusLabel->setWidth(m_size.width - 60.f);
+        statusLabel->setAlignment(kCCTextAlignmentCenter);
+        this->addChildAtPosition(statusLabel, Anchor::Bottom, { 0.f, 55.f });
+
+        auto ARGON_SERVER = getMod()->getSettingValue<std::string>("ARGON_SERVER");
+        if (ARGON_SERVER.size() > 3) argon::setServerUrl(ARGON_SERVER).unwrap();
+
+        auto res = argon::startAuth(
+            [__this = Ref(this), statusLabel = Ref(statusLabel)](Result<std::string> res) {
+
+                if (!res) {
+                    if (statusLabel) statusLabel->setString(fmt::format("{}", res.unwrapErr()).c_str());
+                    log::warn("Auth failed: {}", res.unwrapErr());
+                    return;
+                }
+
+                ARGON_TOKEN = std::move(res).unwrap();
+                //log::debug("TOKEN: {}", TOKEN);
+
+                if (__this) __this->recreateMe();
+            },
+            [statusLabel = Ref(statusLabel)](argon::AuthProgress progress) {
+                if (statusLabel) statusLabel->setString(
+                    fmt::format("Auth progress: {}", argon::authProgressToString(progress)).c_str()
+                );
+                log::info("Auth progress: {}", argon::authProgressToString(progress));
+            }
+        );
+
+        if (!res) {
+            if (statusLabel) statusLabel->setString(
+                fmt::format("Failed to start auth attempt: {}", res.unwrapErr()).c_str()
+            );
+            log::warn("Failed to start auth attempt: {}", res.unwrapErr());
+        }
+
+        return true;
+    }
+    bool init() {
         if (!CCLayer::init()) return false;
 
         this->setKeyboardEnabled(true);
-        this->setContentSize(size);
+        this->setContentSize(m_size);
         this->setAnchorPoint(CCPointMake(0.f, 0.f));
-		this->setID(id);
+		this->setID(m_id);
+
+        if ("loading ui") {
+            auto blackoutRender = CCRenderTexture::create(m_size.width, m_size.height);
+            blackoutRender->getSprite()->setColor(cocos::darken3B(ccWHITE, 120));
+            blackoutRender->getSprite()->setAnchorPoint(CCPointMake(0.f, 1.f));
+            blackoutRender->getSprite()->setID("blackoutRenderSprite"_spr);
+            this->addChildAtPosition(blackoutRender->getSprite(), Anchor::BottomLeft);
+
+            auto loadingSpinner = LoadingSpinner::create(42.000f);
+            loadingSpinner->setID("loadingSpinner"_spr);
+            this->addChildAtPosition(loadingSpinner, Anchor::Center);
+
+            this->runAction(CCRepeatForever::create(
+                CCSequence::create(CallFuncExt::create(
+                    [__this = Ref(this),
+                    loadingSpinner = Ref(loadingSpinner),
+                    blackoutRender = Ref(blackoutRender)] {
+                        if (__this) {
+                            auto& req = __this->m_webTaskListener.getFilter();
+                            if (blackoutRender and loadingSpinner) {
+                                if (!req.isFinished()) {//big deals
+                                    blackoutRender->beginWithClear(0, 0, 0, 0);
+
+                                    //fucking scissor or wht evr
+                                    std::map<CCScrollLayerExt*, bool> cutContentsMap;
+                                    findFirstChildRecursive<CCScrollLayerExt>(__this,
+                                        [&cutContentsMap](CCScrollLayerExt* aw) {
+                                            cutContentsMap[aw] = aw->m_cutContent;
+                                            aw->m_cutContent = false;
+                                            return false;
+                                        }
+                                    );
+
+                                    blackoutRender->getSprite()->setVisible(false);
+                                    loadingSpinner->setVisible(false);
+
+                                    __this->visit();
+                                    blackoutRender->end();
+                                    //setVisible
+                                    for (auto& it : cutContentsMap) it.first->m_cutContent = it.second;
+                                }
+                                loadingSpinner->setVisible(!req.isFinished());
+                                blackoutRender->getSprite()->setVisible(!req.isFinished());
+                            }
+                        }
+                    }
+                ), CCDelayTime::create(0.1f), nullptr)
+            ));
+        };
 
         if (auto bg = CCScale9Sprite::create("square02_small.png")) {
             bg->setZOrder(-1);
@@ -279,6 +424,8 @@ public:
             bg->setContentSize(this->getContentSize());
             this->addChildAtPosition(bg, Anchor::Center);
         }
+
+        if (auth()) return true;
 
         auto container = CCNode::create();
         if (container) {
@@ -317,7 +464,8 @@ public:
                 auto sendButtonSize = CCSizeMake(inputMenuH, inputMenuH);
 
                 auto input = TextInput::create(
-                    this->getContentSize().width - sendButtonSize.width - 3.f, "Your comment...", "chatFont.fnt"
+                    this->getContentSize().width - sendButtonSize.width - 3.f, 
+                    ARGON_ALLOWED ? "Type your comment..." : "", "chatFont.fnt"
                 );
 				input->setAnchorPoint(CCPointMake(0.f, 0.f));
 				input->setTextAlign(TextInputAlign::Left);
@@ -369,9 +517,10 @@ public:
 								.param("update", __this->getID())
 								.param("comment_id", edit->getTag())
 								.param("body", input->getString())
-                                .param("userName", GJAccountManager::get()->m_username.c_str())
-                                .param("gjp2", GJAccountManager::get()->m_GJP2.c_str())
-                                .param("login_link", GJACCOUNT_LOGIN)
+                                .param("account_id", argon::getGameAccountData().accountId)
+                                .param("user_id", argon::getGameAccountData().userId)
+                                .param("username", argon::getGameAccountData().username)
+                                .param("token", ARGON_TOKEN)
 							);
 							return __this->m_webTaskListener.setFilter(req.post(API + std::string("?update")));
                         }
@@ -379,9 +528,10 @@ public:
                         req.bodyMultipart(web::MultipartForm()
                             .param("post", __this->getID())
                             .param("body", input->getString())
-                            .param("userName", GJAccountManager::get()->m_username.c_str())
-                            .param("gjp2", GJAccountManager::get()->m_GJP2.c_str())
-                            .param("login_link", GJACCOUNT_LOGIN)
+                            .param("account_id", argon::getGameAccountData().accountId)
+                            .param("user_id", argon::getGameAccountData().userId)
+                            .param("username", argon::getGameAccountData().username)
+                            .param("token", ARGON_TOKEN)
                         );
                         __this->m_webTaskListener.setFilter(req.post(API + std::string("?post")));
 
@@ -408,58 +558,24 @@ public:
                 inpExt->setID("inpExt"_spr);
 				inputMenu->addChild(inpExt);
 
-            }
+                if (!ARGON_ALLOWED) {
+                    auto enableMeItem = getMod()->getSetting(
+                        "ARGON_ALLOWED"
+                    )->createNode(this->getContentSize().width);
+                    enableMeItem->setID("enableMeItem"_spr);
+                    enableMeItem->setScale(1.037f);
+                    enableMeItem->ignoreAnchorPointForPosition(true);
+                    inputMenu->addChild(enableMeItem);
 
-        }
-
-        if ("loading ui") {
-            auto blackoutRender = CCRenderTexture::create(size.width, size.height);
-            blackoutRender->getSprite()->setColor(cocos::darken3B(ccWHITE, 120));
-            blackoutRender->getSprite()->setAnchorPoint(CCPointMake(0.f, 1.f));
-            blackoutRender->getSprite()->setID("blackoutRenderSprite"_spr);
-            this->addChildAtPosition(blackoutRender->getSprite(), Anchor::BottomLeft);
-
-            auto loadingSpinner = LoadingSpinner::create(42.000f);
-            loadingSpinner->setID("loadingSpinner"_spr);
-            this->addChildAtPosition(loadingSpinner, Anchor::Center);
-
-            this->runAction(CCRepeatForever::create(
-                CCSequence::create(CallFuncExt::create(
-                    [__this = Ref(this),
-                    loadingSpinner = Ref(loadingSpinner),
-                    blackoutRender = Ref(blackoutRender)] {
-                        if (__this) {
-                            auto& req = __this->m_webTaskListener.getFilter();
-                            if (blackoutRender and loadingSpinner) {
-                                if (!req.isFinished()) {//big deals
-                                    blackoutRender->beginWithClear(0, 0, 0, 0);
-
-                                    //fucking scissor or wht evr
-                                    std::map<CCScrollLayerExt*, bool> cutContentsMap;
-                                    findFirstChildRecursive<CCScrollLayerExt>(__this,
-                                        [&cutContentsMap](CCScrollLayerExt* aw) {
-                                            cutContentsMap[aw] = aw->m_cutContent;
-                                            aw->m_cutContent = false;
-                                            return false;
-                                        }
-                                    );
-
-                                    blackoutRender->getSprite()->setVisible(false);
-                                    loadingSpinner->setVisible(false);
-
-                                    __this->visit();
-                                    blackoutRender->end();
-                                    //setVisible
-                                    for (auto& it : cutContentsMap) it.first->m_cutContent = it.second;
-                                }
-                                loadingSpinner->setVisible(!req.isFinished());
-                                blackoutRender->getSprite()->setVisible(!req.isFinished());
-                            }
+                    enableMeItem->runAction(CCRepeatForever::create(CCSequence::create(CallFuncExt::create(
+                        [__this = Ref(this), enableMeItem = Ref(enableMeItem)]() {
+                            enableMeItem->commit();
+                            if (ARGON_ALLOWED) if (__this) __this->recreateMe();
                         }
-                    }
-                ), CCDelayTime::create(0.1f), nullptr)
-            ));
-        };
+                    ), CCDelayTime::create(0.5f), nullptr)));
+                };
+            }
+        }
 
         return true;
     }
@@ -562,60 +678,3 @@ void hi() {
     );
 }
 $execute{ hi(); } //intellisense goes insane in $execute block
-
-#include <Geode/modify/MenuLayer.hpp>
-class $modify(InitalWebStuffLoader, MenuLayer) {
-    inline static bool g_shouldNotTryLoadUser;
-    struct Fields {
-		EventListener<web::WebTask> m_webTaskListener;
-	};
-    void tryLoadUser() {
-
-        web::WebRequest req = web::WebRequest();
-        req.header("Content-Type", "multipart/form-data");
-
-        req.bodyMultipart(web::MultipartForm()
-            .param("userName", GJAccountManager::get()->m_username.c_str())
-            .param("gjp2", GJAccountManager::get()->m_GJP2.c_str())
-            .param("login_link", GJACCOUNT_LOGIN)
-        );
-        auto task = req.post(API + std::string("?login"));
-
-        this->m_fields->m_webTaskListener.bind(
-            [__this = Ref(this)](web::WebTask::Event* e) {
-                if (web::WebResponse* res = e->getValue()) {
-                    auto str = res->string().unwrapOrDefault();
-                    auto json = res->json().unwrapOrDefault();
-                    if (json.contains("accountID")) {
-						g_shouldNotTryLoadUser = true;
-                        ACCOUNT = json;
-                    }
-                    else {
-                        auto msg = fmt::format(
-                            "### <cr>Mod Comments server failed to test your GD Account:"
-                            "\n```"
-                            "\n{}"
-                            "\n{} [code: {}]"
-                            "\n```"
-                            , res->errorMessage()
-                            , str
-                            , res->code()
-                        );
-                        log::error("{}", msg);
-                        MDPopup::create(
-                            "GD Account Test Fail",
-                            msg, 
-                            "Close"
-                        )->show();
-                    }
-                }
-            }
-        );
-        this->m_fields->m_webTaskListener.setFilter(task);
-        
-    }
-    bool init() {
-        if (!g_shouldNotTryLoadUser) tryLoadUser();
-        return MenuLayer::init();
-    }
-};

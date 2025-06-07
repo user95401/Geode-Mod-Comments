@@ -8,13 +8,13 @@
 	},
 	"id": "user95401.geode-mod-comments",
 	"name": "Mod Comments",
-	"version": "v2.0.0-beta.1",
+	"version": "v2.0.0-beta.2",
 	"developer": "user95401",
 	"description": "Add comments in mod popups of Geode Loader.",
 	"tags": [ "online", "enhancement", "interface", "content", "developer" ],
 	"links": {
 		"community": "https://discord.gg/6SxAbk3bTA",
-		"homepage": "https://geode-comments.bccst.ru",
+		"homepage": "https://t.me/user95401_channel",
 		"source": "https://github.com/user95401/Geode-Mod-Comments"
 	},
 	"resources": {
@@ -35,18 +35,24 @@
 	},
 	"settings": {
 		"API": {
-			"name": "Mod Commets API",
+			"name": "Mod Commets Server",
 			"description": "Link to the Mod Commets Server API",
 			"default": "https://geode-comments.bccst.ru/",
 			"filter": "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!№;%:?*()_+-=.,/|\"'@#$^&{}[]",
 			"type": "string"
 		},
-		"GJACCOUNT_LOGIN": {
-			"name": "GD Account Login",
-			"description": "You can set custom GD Account login endp link (f.e. if used on GDPS)",
-			"default": "https://boomlings.com/database/accounts/loginGJAccount.php",
+		"ARGON_SERVER": {
+			"name": "Argon Server",
+			"description": "Set the URL of the used Argon server.",
+			"default": "",
 			"filter": "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!№;%:?*()_+-=.,/|\"'@#$^&{}[]",
 			"type": "string"
+		},
+		"ARGON_ALLOWED": {
+			"name": "Allow authorization with Argon",
+			"description": "Allow GD Account authorization with Argon to be able to send comments.",
+			"default": false,
+			"type": "bool"
 		}
 	}
 }

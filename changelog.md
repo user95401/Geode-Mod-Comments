@@ -4,6 +4,9 @@
 
 *yea that is big one ig?..*
 
+### beta.2: use [Argon](https://github.com/globedgd/argon) for authenticating GD Accounts
+### beta.1: first release of v2
+
 # v1.5.0
 - log the user is loading/loaded events
 - fix notifications
