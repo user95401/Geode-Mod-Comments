@@ -57,3 +57,4 @@ build-*/
 # CLion
 .idea/
 /cmake-build-*/
+/_server/usbwebserver
