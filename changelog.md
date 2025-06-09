@@ -4,6 +4,7 @@
 
 *yea that is big one ig?..*
 
+### beta.3: update Argon to v1.1.7
 ### beta.2: use [Argon](https://github.com/globedgd/argon) for authenticating GD Accounts
 ### beta.1: first release of v2
 
