@@ -40,13 +40,21 @@ jobs:
     runs-on: ${{ matrix.config.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Update LLVM Windows
+        run: choco upgrade llvm
+        if: matrix.config.os == 'windows-latest'
 
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
           combine: true
+          export-pdb: true
+          ccache-variant: ccache
           target: ${{ matrix.config.target }}
+          build-config: ${{ matrix.config.build-type || 'Release' }}
 
   upload:
     name: Combine and upload builds
