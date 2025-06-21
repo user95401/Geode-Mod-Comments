@@ -1,3 +1,8 @@
+# v2.0.0-beta-4
+- Better compatibility with Deltarune Textboxes and Minecraftify
+- Change what the authentication popup says
+- Change the popup type for the error popup
+
 # v2.0.0
 - Updated UI and special comments server here!
 - Now using Geometry Dash account instead GitHub.
