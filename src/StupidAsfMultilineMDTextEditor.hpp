@@ -141,7 +141,6 @@ public:
                         "", "chatFont.fnt"
                     );
                     if (i < inpStrLines.size()) input->setString(inpStrLines[i]);
-                    input->getInputNode()->m_textField->m_uCursorPos;
                     input->setDelegate(this);
                     input->setID("input_" + std::to_string(i));
                     input->setPositionX(-3.000f);
@@ -162,10 +161,10 @@ public:
                     );
                     input->getInputNode()->m_cursor->runAction(CCRepeatForever::create(
                         CCSequence::create(
-                            CCFadeTo::create(0.1f, 0),    // Исчезновение: 0.1 сек
-                            CCDelayTime::create(0.3f),     // Пауза невидимым: 0.3 сек
-                            CCFadeTo::create(0.1f, 150),  // Появление: 0.1 сек
-                            CCDelayTime::create(0.5f)      // Пауза видимым: 0.5 сек
+                            CCFadeTo::create(0.1f, 0),    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: 0.1 пїЅпїЅпїЅ
+                            CCDelayTime::create(0.3f),     // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: 0.3 пїЅпїЅпїЅ
+                            CCFadeTo::create(0.1f, 150),  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: 0.1 пїЅпїЅпїЅ
+                            CCDelayTime::create(0.5f)      // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: 0.5 пїЅпїЅпїЅ
                             , nullptr
                         )
                     ));
