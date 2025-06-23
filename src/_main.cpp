@@ -301,8 +301,7 @@ public:
             if (Loader::get()->getLoadedMod("timestepyt.deltarune_textboxes")) {
                 qWindow->show();
             }
-            else
-            if (Loader::get()->getLoadedMod("zalphalaneous.minecraft")) {
+            else if (Loader::get()->getLoadedMod("zalphalaneous.minecraft")) {
                 qWindow->show();
             }
             else
