@@ -8,7 +8,7 @@
 	},
 	"id": "user95401.geode-mod-comments",
 	"name": "Mod Comments",
-	"version": "v2.0.0-beta.4",
+	"version": "v2.0.0-beta.5",
 	"developer": "user95401",
 	"description": "Add comments in mod popups of Geode Loader.",
 	"tags": [ "online", "enhancement", "interface", "content", "developer" ],
