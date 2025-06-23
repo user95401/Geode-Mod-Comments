@@ -330,7 +330,7 @@ public:
         this->removeChildByID("statusLabel"_spr); //remove prev status label
         auto statusLabel = CCLabelBMFont::create("Authenticating...", "chatFont.fnt");
         statusLabel->setID("statusLabel"_spr);
-        statusLabel->setWidth(m_textArea->getContentWidth() - 60.f);
+        statusLabel->setWidth(this->getContentSize().width - 60.f);
         statusLabel->setAlignment(kCCTextAlignmentCenter);
         this->addChildAtPosition(statusLabel, Anchor::Bottom, { 0.f, 55.f });
         
