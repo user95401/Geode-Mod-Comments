@@ -161,10 +161,10 @@ public:
                     );
                     input->getInputNode()->m_cursor->runAction(CCRepeatForever::create(
                         CCSequence::create(
-                            CCFadeTo::create(0.1f, 0),    // ������������: 0.1 ���
-                            CCDelayTime::create(0.3f),     // ����� ���������: 0.3 ���
-                            CCFadeTo::create(0.1f, 150),  // ���������: 0.1 ���
-                            CCDelayTime::create(0.5f)      // ����� �������: 0.5 ���
+                            CCFadeTo::create(0.1f, 0),    // Исчезновение: 0.1 сек
+                            CCDelayTime::create(0.3f),     // Пауза невидимым: 0.3 сек
+                            CCFadeTo::create(0.1f, 150),  // Появление: 0.1 сек
+                            CCDelayTime::create(0.5f)      // Пауза видимым: 0.5 сек
                             , nullptr
                         )
                     ));
