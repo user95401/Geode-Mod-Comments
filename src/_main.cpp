@@ -19,7 +19,7 @@ class CommentsLayer : public CCLayer {
 public:
     EventListener<web::WebTask> m_webTaskListener;
     std::string m_id;
-    CCSize m_size;
+    CCNode* m_textArea;
     virtual void keyDown(enumKeyCodes key) override {
         CCLayer::keyDown(key);
         
@@ -50,10 +50,10 @@ public:
         );
         if (key == KEY_Home) commentsScroll->scrollToTop();
     }
-    static CommentsLayer* create(std::string id, CCSize size) {
+    static CommentsLayer* create(std::string id, CCNode* textArea) {
         auto ret = new CommentsLayer;
         ret->m_id = id;
-        ret->m_size = size;
+        ret->m_textArea = textArea;
         if (ret->init()) {
             ret->autorelease();
             return ret;
@@ -62,8 +62,8 @@ public:
         return nullptr;
     }
     void recreateMe() {
-        this->getParent()->addChild(
-            CommentsLayer::create(m_id, m_size)
+        m_textArea->addChild(
+            CommentsLayer::create(m_id, m_textArea)
         );
         this->removeFromParent();
     }
@@ -286,7 +286,7 @@ public:
                 "Authentication",
                 "Argon by Globed will be used to authenticate your Geometry Dash account for Mod Comments.\n\nDo you allow this?",
                 "No", "Yes",
-                [this, parent = Ref(getParent())](CCNode*, bool allow) {
+                [this, parent = Ref(m_textArea)](CCNode*, bool allow) {
                     if (allow) {
                         ARGON_ALLOW(true);
                         auth();
@@ -330,7 +330,7 @@ public:
         this->removeChildByID("statusLabel"_spr); //remove prev status label
         auto statusLabel = CCLabelBMFont::create("Authenticating...", "chatFont.fnt");
         statusLabel->setID("statusLabel"_spr);
-        statusLabel->setWidth(m_size.width - 60.f);
+        statusLabel->setWidth(m_textArea->getContentWidth() - 60.f);
         statusLabel->setAlignment(kCCTextAlignmentCenter);
         this->addChildAtPosition(statusLabel, Anchor::Bottom, { 0.f, 55.f });
         
@@ -338,7 +338,7 @@ public:
         if (ARGON_SERVER.size() > 3) argon::setServerUrl(ARGON_SERVER).unwrap();
         
         auto res = argon::startAuth(
-            [this, parent = Ref(getParent()), statusLabel = Ref(statusLabel)](Result<std::string> res) {
+            [this, parent = Ref(m_textArea), statusLabel = Ref(statusLabel)](Result<std::string> res) {
                 
                 if (!res) {
                     if (statusLabel) statusLabel->setString(fmt::format("{}", res.unwrapErr()).c_str());
@@ -371,13 +371,14 @@ public:
     bool init() override {
         if (!CCLayer::init()) return false;
         
+        auto size = m_textArea->getContentSize();
         this->setKeyboardEnabled(true);
-        this->setContentSize(m_size);
+        this->setContentSize(size);
         this->setAnchorPoint(CCPointMake(0.f, 0.f));
         this->setID(m_id);
         
         if ("loading ui") {
-            auto blackoutRender = CCRenderTexture::create(m_size.width, m_size.height);
+            auto blackoutRender = CCRenderTexture::create(size.width, size.height);
             blackoutRender->getSprite()->setColor(cocos::darken3B(ccWHITE, 120));
             blackoutRender->getSprite()->setAnchorPoint(CCPointMake(0.f, 1.f));
             blackoutRender->getSprite()->setID("blackoutRenderSprite"_spr);
@@ -575,7 +576,7 @@ public:
                     inputMenu->addChild(enableMeItem);
                     
                     enableMeItem->runAction(CCRepeatForever::create(CCSequence::create(CallFuncExt::create(
-                        [this, parent = Ref(getParent()), enableMeItem = Ref(enableMeItem)]() {
+                        [this, parent = Ref(m_textArea), enableMeItem = Ref(enableMeItem)]() {
                             enableMeItem->commit();
                             if (ARGON_ALLOWED) recreateMe();
                         }
@@ -660,7 +661,7 @@ void hi() {
                         //hide descr or changelog
                         textarea->setVisible(0);
                         //add comments layer really
-                        auto comments = CommentsLayer::create(modID, pFetchTextArea->getContentSize());
+                        auto comments = CommentsLayer::create(modID, pFetchTextArea);
                         pFetchTextArea->addChild(comments);
                     }
                     sender->getParent()->setTag(sender->getTag());
